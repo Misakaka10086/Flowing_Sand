@@ -1,12 +1,8 @@
-#include <Wire.h>
-#include <Adafruit_ADXL345_U.h>
-#include <Adafruit_Sensor.h>
-#include <NeoPixelBus.h>
-#include <math.h> // For sin(), cos(), fmod(), PI
+#include <NeoPixelBus.h> // 只需 NeoPixelBus 和 math
+#include <math.h>
 
-// ADXL345 引脚定义
-const int SDA_PIN = 4;
-const int SCL_PIN = 5;
+// --- 调试开关 ---
+// #define DEBUG_SERIAL // 可以保留，如果想看波纹创建信息
 
 // WS2812 灯珠引脚定义
 const int LED_PIN = 11;
@@ -16,308 +12,217 @@ const int MATRIX_WIDTH = 8;
 const int MATRIX_HEIGHT = 8;
 const int NUM_LEDS = MATRIX_WIDTH * MATRIX_HEIGHT;
 
-// 小球数量
-const int NUM_BALLS = 20;
-
-// 物理参数
-const float GRAVITY_SCALE = 25.0f;
-const float DAMPING_FACTOR = 0.95f;
-const float SENSOR_DEAD_ZONE = 0.8f;
-const float BALL_RADIUS = 0.5f;
-const float MIN_SEPARATION_DIST_SQ = (2 * BALL_RADIUS) * (2 * BALL_RADIUS);
-const float RESTITUTION_COEFFICIENT = 0.75f; // 您代码中边界碰撞是-0.5，小球间碰撞是这个值
-const float BALL_MASS = 1.0f;
-const float INV_BALL_MASS = 1.0f / BALL_MASS;
-
-// LED亮度 (0-255) - 这是灯带的整体最大亮度基准
-const uint8_t BASE_BRIGHTNESS = 64;
-
-// 小球动态亮度参数
-const float MIN_BALL_BRIGHTNESS_SCALE = 0.2f;
-const float MAX_BALL_BRIGHTNESS_SCALE = 1.0f;
-const float BRIGHTNESS_CYCLE_PERIOD_S = 3.0f;
-
-// 小球动态颜色参数
-const float COLOR_CYCLE_PERIOD_S = 10.0f; // 一个完整的色调循环所需的时间 (秒)
-const float BALL_COLOR_SATURATION = 1.0f; // 小球颜色饱和度 (0.0 to 1.0, 1.0 is full color)
-
-// ADXL345 传感器对象
-Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
-
 // NeoPixelBus 对象
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 
-// 小球结构体
-struct Ball
-{
-  float x, y;
-  float vx, vy;
-  float brightnessFactor;
-  float brightnessPhaseOffset;
-  float hue;            // Current hue (0.0 to 1.0)
-  float huePhaseOffset; // Hue change phase offset (0 to 2*PI)
+// --- 涟漪效果参数 ---
+const int MAX_RIPPLES = 5;                 // 同时存在的最大波纹数量
+const float DEFAULT_RIPPLE_SPEED = 3.0f;     // 波纹扩散速度 (单位/秒)
+const float DEFAULT_RIPPLE_MAX_RADIUS = MATRIX_WIDTH * 1.2f; // 波纹最大扩散半径 (之前是1.5，1.2让它消失得稍快)
+const float RIPPLE_THICKNESS = 1.8f;     // 波纹的视觉厚度 (之前是2.0)
+const float RIPPLE_BRIGHTNESS_MULTIPLIER = 1.0f;   // 波纹亮度乘数 (0.0 - 1.0)
+const uint8_t BASE_LED_BRIGHTNESS = 100;    // LED 的基础最大亮度
+
+// --- 自动波纹参数 ---
+const float AUTO_RIPPLE_INTERVAL_S = 2.0f; // 每隔多少秒自动产生一个波纹
+unsigned long lastAutoRippleTimeMs = 0;
+
+struct Ripple {
+    bool isActive;
+    float originX, originY;
+    unsigned long startTimeMs;
+    float speed;
+    float maxRadius;
+    float hue;
 };
 
-Ball balls[NUM_BALLS];
-unsigned long lastUpdateTime = 0;
+Ripple ripples[MAX_RIPPLES];
+int nextRippleIndex = 0;
 
-// Helper function to convert HSV to RGB
-// h, s, v range is 0-1.0
-// r, g, b range is 0-255
-RgbColor HsvToRgb(float h, float s, float v)
-{
-  float r_hsv, g_hsv, b_hsv; // Use different names to avoid conflict with RgbColor members
-  if (s == 0.0f)
-  { // Achromatic (grey)
-    r_hsv = g_hsv = b_hsv = v;
-  }
-  else
-  {
-    int i = floor(h * 6.0f);
-    float f = (h * 6.0f) - i;
-    float p = v * (1.0f - s);
-    float q = v * (1.0f - s * f);
-    float t = v * (1.0f - s * (1.0f - f));
-    i = i % 6;
-    switch (i)
-    {
-    case 0:
-      r_hsv = v;
-      g_hsv = t;
-      b_hsv = p;
-      break;
-    case 1:
-      r_hsv = q;
-      g_hsv = v;
-      b_hsv = p;
-      break;
-    case 2:
-      r_hsv = p;
-      g_hsv = v;
-      b_hsv = t;
-      break;
-    case 3:
-      r_hsv = p;
-      g_hsv = q;
-      b_hsv = v;
-      break;
-    case 4:
-      r_hsv = t;
-      g_hsv = p;
-      b_hsv = v;
-      break;
-    case 5:
-      r_hsv = v;
-      g_hsv = p;
-      b_hsv = q;
-      break;
-    default:
-      r_hsv = 0;
-      g_hsv = 0;
-      b_hsv = 0;
-      break; // Should not happen
+
+// HSV to RGB 转换函数
+RgbColor HsvToRgb(float h, float s, float v_factor) { 
+    float r_hsv, g_hsv, b_hsv;
+    float actual_v = v_factor * RIPPLE_BRIGHTNESS_MULTIPLIER; 
+
+    if (s == 0.0f) {
+        r_hsv = g_hsv = b_hsv = actual_v;
+    } else {
+        int i = floor(h * 6.0f);
+        float f = (h * 6.0f) - i;
+        float p = actual_v * (1.0f - s);
+        float q = actual_v * (1.0f - s * f);
+        float t = actual_v * (1.0f - s * (1.0f - f));
+        i = i % 6;
+        switch (i) {
+            case 0: r_hsv = actual_v; g_hsv = t; b_hsv = p; break;
+            case 1: r_hsv = q; g_hsv = actual_v; b_hsv = p; break;
+            case 2: r_hsv = p; g_hsv = actual_v; b_hsv = t; break;
+            case 3: r_hsv = p; g_hsv = q; b_hsv = actual_v; break;
+            case 4: r_hsv = t; g_hsv = p; b_hsv = actual_v; break;
+            case 5: r_hsv = actual_v; g_hsv = p; b_hsv = q; break;
+            default: r_hsv = 0; g_hsv = 0; b_hsv = 0; break;
+        }
     }
-  }
-  return RgbColor((uint8_t)(r_hsv * 255.0f), (uint8_t)(g_hsv * 255.0f), (uint8_t)(b_hsv * 255.0f));
+    // 应用基础亮度
+    uint8_t final_r = (uint8_t)(r_hsv * BASE_LED_BRIGHTNESS);
+    uint8_t final_g = (uint8_t)(g_hsv * BASE_LED_BRIGHTNESS);
+    uint8_t final_b = (uint8_t)(b_hsv * BASE_LED_BRIGHTNESS);
+
+    return RgbColor(final_r, final_g, final_b);
 }
 
-void setup()
-{
-  Serial.begin(115200);
-  Serial.println("ESP32 ADXL345 WS2812 Ball Sim - Color & Brightness Pulse");
 
-  Wire.begin(SDA_PIN, SCL_PIN);
+void setup() {
+#ifdef DEBUG_SERIAL
+    Serial.begin(115200);
+    while (!Serial) { delay(10); } 
+    Serial.println("ESP32 Auto Ripple Effect");
+    Serial.printf("LED Pin: %d, Matrix: %dx%d\n", LED_PIN, MATRIX_WIDTH, MATRIX_HEIGHT);
+    Serial.printf("Auto ripple interval: %.1f s\n", AUTO_RIPPLE_INTERVAL_S);
+#endif
 
-  if (!accel.begin())
-  {
-    Serial.println("Could not find ADXL345");
-    while (1)
-      ;
-  }
-  accel.setRange(ADXL345_RANGE_4_G);
+#ifdef DEBUG_SERIAL
+    Serial.println("Initializing NeoPixelBus strip...");
+#endif
+    strip.Begin();
+    strip.Show(); // 初始化所有灯珠为灭
+#ifdef DEBUG_SERIAL
+    Serial.println("NeoPixelBus strip initialized.");
+#endif
 
-  strip.Begin();
-  strip.Show();
+    for (int i = 0; i < MAX_RIPPLES; ++i) {
+        ripples[i].isActive = false;
+        ripples[i].speed = 0.0f; 
+        ripples[i].startTimeMs = 0; 
+    }
+    // 使用 analogRead 在未连接的引脚上获取一些随机性，或者就用 millis()
+    // randomSeed(millis() + analogRead(A0)); 
+    randomSeed(millis());
 
-  // ESP32 specific: for better random numbers with random()
-  // Use an unconnected analog pin, or a pin connected to a floating wire.
-  // If no analog pin is easily accessible, use a combination of boot time and other factors.
-  // For ESP32, `esp_random()` is generally better if you are not using Arduino's random().
-  // Arduino's randomSeed(analogRead(pin)) is a common pattern.
-  // Ensure the pin used for analogRead is valid for your ESP32 board (e.g., GPIOs 32-39 usually are).
-  // Using a non-existent pin for analogRead might return 0 or a fixed value.
-  // Let's use millis() as a fallback if analogRead isn't ideal without hardware setup.
-  randomSeed(millis() + analogRead(A0)); // A0 is often GPIO36 on ESP32 DevKits
 
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    bool positionOK;
-    do
-    {
-      positionOK = true;
-      balls[i].x = random(MATRIX_WIDTH * 100) / 100.0f;
-      balls[i].y = random(MATRIX_HEIGHT * 100) / 100.0f;
-      for (int j = 0; j < i; ++j)
-      {
-        float dx_init = balls[i].x - balls[j].x;
-        float dy_init = balls[i].y - balls[j].y;
-        if (dx_init * dx_init + dy_init * dy_init < MIN_SEPARATION_DIST_SQ)
-        {
-          positionOK = false;
-          break;
-        }
-      }
-    } while (!positionOK);
-
-    balls[i].vx = 0;
-    balls[i].vy = 0;
-
-    balls[i].brightnessPhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-    balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE;
-
-    balls[i].huePhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-    balls[i].hue = fmod(((0.0f / 1000.0f * 2.0f * PI / COLOR_CYCLE_PERIOD_S) + balls[i].huePhaseOffset) / (2.0f * PI), 1.0f);
-    if (balls[i].hue < 0)
-      balls[i].hue += 1.0f;
-
-    // Serial.printf("Ball %d init: (%.2f, %.2f), b_phase: %.2f, h_phase: %.2f\n",
-    //               i, balls[i].x, balls[i].y, balls[i].brightnessPhaseOffset, balls[i].huePhaseOffset);
-  }
-  lastUpdateTime = millis();
+#ifdef DEBUG_SERIAL
+    Serial.println("Setup complete.");
+#endif
+    lastAutoRippleTimeMs = millis(); // 初始化上次自动波纹时间
 }
 
-void loop()
-{
-  unsigned long currentTime = millis();
-  float dt = (currentTime - lastUpdateTime) / 1000.0f;
-  if (dt <= 0.0001f)
-    dt = 0.001f; // Avoid dt=0 or too small
-  lastUpdateTime = currentTime;
+// 波纹创建函数 (不再需要 "Debug" 后缀)
+void createRipple(float ox, float oy, float startHue) {
+    ripples[nextRippleIndex].isActive = true;
+    ripples[nextRippleIndex].originX = ox;
+    ripples[nextRippleIndex].originY = oy;
+    ripples[nextRippleIndex].startTimeMs = millis(); 
+    ripples[nextRippleIndex].speed = DEFAULT_RIPPLE_SPEED;
+    ripples[nextRippleIndex].maxRadius = DEFAULT_RIPPLE_MAX_RADIUS;
+    ripples[nextRippleIndex].hue = startHue;
 
-  float totalTimeSeconds = currentTime / 1000.0f;
-
-  sensors_event_t event;
-  accel.getEvent(&event);
-  float rawAx = event.acceleration.x;
-  float rawAz = event.acceleration.z;
-
-  float ax_eff = (abs(rawAx) < SENSOR_DEAD_ZONE) ? 0 : rawAx;
-  float az_eff = (abs(rawAz) < SENSOR_DEAD_ZONE) ? 0 : rawAz;
-
-  float forceX = -ax_eff * GRAVITY_SCALE;
-  float forceY = az_eff * GRAVITY_SCALE;
-
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    // ---- 更新亮度 ----
-    float sinWaveBright = (sin((2.0f * PI / BRIGHTNESS_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f;
-    balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE + sinWaveBright * (MAX_BALL_BRIGHTNESS_SCALE - MIN_BALL_BRIGHTNESS_SCALE);
-
-    // ---- 更新色调 (Hue) ----
-    float rawHueAngle = (2.0f * PI / COLOR_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].huePhaseOffset;
-    balls[i].hue = fmod(rawHueAngle / (2.0f * PI), 1.0f);
-    if (balls[i].hue < 0.0f)
-      balls[i].hue += 1.0f;
-
-    // ---- 更新物理运动 ----
-    balls[i].vx += forceX * dt;
-    balls[i].vy += forceY * dt;
-    balls[i].vx *= DAMPING_FACTOR;
-    balls[i].vy *= DAMPING_FACTOR;
-    balls[i].x += balls[i].vx * dt;
-    balls[i].y += balls[i].vy * dt;
-
-    // ---- 边界碰撞 ---- (Using your -0.5 factor from the provided code)
-    if (balls[i].x < BALL_RADIUS)
-    {
-      balls[i].x = BALL_RADIUS;
-      balls[i].vx *= -0.5;
+#ifdef DEBUG_SERIAL
+    if (Serial) {
+        Serial.printf("Ripple %d CREATED: ox=%.1f, oy=%.1f, hue=%.2f, speed=%.2f, startTime=%lu\n",
+                      nextRippleIndex, ox, oy, startHue, ripples[nextRippleIndex].speed, ripples[nextRippleIndex].startTimeMs);
     }
-    else if (balls[i].x > MATRIX_WIDTH - BALL_RADIUS)
-    {
-      balls[i].x = MATRIX_WIDTH - BALL_RADIUS;
-      balls[i].vx *= -0.5;
-    }
-    if (balls[i].y < BALL_RADIUS)
-    {
-      balls[i].y = BALL_RADIUS;
-      balls[i].vy *= -0.5;
-    }
-    else if (balls[i].y > MATRIX_HEIGHT - BALL_RADIUS)
-    {
-      balls[i].y = MATRIX_HEIGHT - BALL_RADIUS;
-      balls[i].vy *= -0.5;
-    }
-  }
+#endif
+    nextRippleIndex = (nextRippleIndex + 1) % MAX_RIPPLES;
+}
 
-  // ---- 小球间碰撞 ----
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    for (int j = i + 1; j < NUM_BALLS; ++j)
-    {
-      float dx = balls[j].x - balls[i].x;
-      float dy = balls[j].y - balls[i].y;
-      float distSq = dx * dx + dy * dy;
+unsigned long loopCount = 0; 
 
-      if (distSq < MIN_SEPARATION_DIST_SQ && distSq > 0.00001f)
-      {
-        float dist = sqrt(distSq);
-        float nx = dx / dist;
-        float ny = dy / dist;
-        float rvx = balls[j].vx - balls[i].vx;
-        float rvy = balls[j].vy - balls[i].vy;
-        float velAlongNormal = rvx * nx + rvy * ny;
+void loop() {
+    loopCount++;
+    unsigned long currentTimeMs = millis(); 
 
-        if (velAlongNormal < 0)
-        {
-          float impulseMagnitude = -(1.0f + RESTITUTION_COEFFICIENT) * velAlongNormal / (2.0f * INV_BALL_MASS);
-          balls[i].vx -= impulseMagnitude * nx * INV_BALL_MASS;
-          balls[i].vy -= impulseMagnitude * ny * INV_BALL_MASS;
-          balls[j].vx += impulseMagnitude * nx * INV_BALL_MASS;
-          balls[j].vy += impulseMagnitude * ny * INV_BALL_MASS;
+    // 1. 自动创建波纹逻辑
+    if (currentTimeMs - lastAutoRippleTimeMs >= (unsigned long)(AUTO_RIPPLE_INTERVAL_S * 1000.0f)) {
+        lastAutoRippleTimeMs = currentTimeMs;
+        
+        float originX = MATRIX_WIDTH / 2.0f;
+        float originY = MATRIX_HEIGHT / 2.0f;
+        // 可以让起始点稍微随机一些，或者固定在中心
+        // originX += random(-100, 101) / 100.0f; // -1 to +1 offset
+        // originY += random(-100, 101) / 100.0f;
+        // originX = constrain(originX, 0.5f, MATRIX_WIDTH - 0.5f);
+        // originY = constrain(originY, 0.5f, MATRIX_HEIGHT - 0.5f);
+
+        float randomHue = random(0, 1000) / 1000.0f;
+        createRipple(originX, originY, randomHue);
+#ifdef DEBUG_SERIAL
+        if (Serial) {
+            Serial.printf("[%lu] Auto-Ripple Triggered.\n", currentTimeMs);
         }
-
-        float overlap = (2 * BALL_RADIUS) - dist;
-        float correction_factor = 0.5f;
-        balls[i].x -= nx * overlap * correction_factor;
-        balls[i].y -= ny * overlap * correction_factor;
-        balls[j].x += nx * overlap * correction_factor;
-        balls[j].y += ny * overlap * correction_factor;
-      }
+#endif
     }
-  }
 
-  // ---- 渲染小球 ----
-  strip.ClearTo(RgbColor(0, 0, 0));
+    // 2. 渲染LED矩阵
+    bool anyPixelSetThisFrame = false; // 用于调试 strip.Show()
+    strip.ClearTo(RgbColor(0, 0, 0)); 
 
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    int pixelX = round(balls[i].x - BALL_RADIUS);
-    int pixelY = round(balls[i].y - BALL_RADIUS);
-    pixelX = constrain(pixelX, 0, MATRIX_WIDTH - 1);
-    pixelY = constrain(pixelY, 0, MATRIX_HEIGHT - 1);
-    int ledIndex = pixelY * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - pixelX);
+    for (int j_pixel = 0; j_pixel < MATRIX_HEIGHT; ++j_pixel) { 
+        for (int i_pixel = 0; i_pixel < MATRIX_WIDTH; ++i_pixel) { 
+            float pixelCenterX = i_pixel + 0.5f;
+            float pixelCenterY = j_pixel + 0.5f;
+            
+            float maxIntensityForThisPixel = 0.0f;
+            RgbColor colorForThisPixel(0,0,0);
 
-    if (ledIndex >= 0 && ledIndex < NUM_LEDS)
-    {
-      // 1. HSV 色彩 (V=1.0 for full intensity before brightness scaling)
-      RgbColor baseRgbColor = HsvToRgb(balls[i].hue, BALL_COLOR_SATURATION, 1.0f);
+            for (int r_idx = 0; r_idx < MAX_RIPPLES; ++r_idx) {
+                if (ripples[r_idx].isActive) {
+                    unsigned long rippleStartTime = ripples[r_idx].startTimeMs;
+                    float rippleSpeed = ripples[r_idx].speed; 
+                    
+                    float elapsedTimeS = (float)(currentTimeMs - rippleStartTime) / 1000.0f; 
+                    float currentRadius = elapsedTimeS * rippleSpeed; 
 
-      // 2. 应用动态亮度和全局基础亮度
-      // balls[i].brightnessFactor is already scaled (MIN_SCALE to MAX_SCALE)
-      // BASE_BRIGHTNESS is the overall max brightness (0-255)
-      float r_final = baseRgbColor.R * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
-      float g_final = baseRgbColor.G * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
-      float b_final = baseRgbColor.B * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
+                    // 波纹消失条件
+                    if (currentRadius > ripples[r_idx].maxRadius + RIPPLE_THICKNESS / 2.0f) { //  /2 so it fades out at edge
+                        ripples[r_idx].isActive = false; 
+#ifdef DEBUG_SERIAL
+                         if(Serial && loopCount % 50 == 0) { // Less frequent deactivation log
+                             Serial.printf("[%lu] R[%d] DEACTIVATED (rad=%.2f > maxRTh=%.2f)\n", 
+                                           currentTimeMs, r_idx, currentRadius, ripples[r_idx].maxRadius + RIPPLE_THICKNESS / 2.0f);
+                         }
+#endif
+                        continue; 
+                    }
 
-      RgbColor finalBallColor(
-          (uint8_t)constrain(r_final, 0, 255),
-          (uint8_t)constrain(g_final, 0, 255),
-          (uint8_t)constrain(b_final, 0, 255));
-      strip.SetPixelColor(ledIndex, finalBallColor);
+                    float distToOrigin = sqrt(pow(pixelCenterX - ripples[r_idx].originX, 2) + pow(pixelCenterY - ripples[r_idx].originY, 2));
+                    float distToRippleEdge = abs(distToOrigin - currentRadius);
+
+                    if (distToRippleEdge < RIPPLE_THICKNESS / 2.0f) {
+                        // 平滑的亮度衰减，类似高斯波形的中心部分
+                        float intensityFactor = cos((distToRippleEdge / (RIPPLE_THICKNESS / 2.0f)) * (PI / 2.0f));
+                        intensityFactor = constrain(intensityFactor, 0.0f, 1.0f);
+
+
+                        if (intensityFactor > maxIntensityForThisPixel) {
+                            maxIntensityForThisPixel = intensityFactor;
+                            colorForThisPixel = HsvToRgb(ripples[r_idx].hue, 1.0f, maxIntensityForThisPixel);
+                        }
+                    }
+                }
+            }
+
+            if (maxIntensityForThisPixel > 0.0f) {
+                // 逻辑坐标 (i_pixel, j_pixel)，(0,0) 是左下角
+                // LED 索引：从右到左，从下到上
+                int ledIndex = j_pixel * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - i_pixel);
+                 if (ledIndex >= 0 && ledIndex < NUM_LEDS) {
+                    strip.SetPixelColor(ledIndex, colorForThisPixel);
+                    anyPixelSetThisFrame = true;
+                 }
+            }
+        }
     }
-  }
-  strip.Show();
 
-  delay(5);
+#ifdef DEBUG_SERIAL
+    if (loopCount % 100 == 0 && Serial) { // Print strip.Show status less frequently
+        if (anyPixelSetThisFrame) {
+            Serial.printf("[%lu] strip.Show() called, pixels were set.\n", currentTimeMs);
+        } else {
+            Serial.printf("[%lu] strip.Show() called, NO pixels set this frame.\n", currentTimeMs);
+        }
+    }
+#endif
+    strip.Show();
+    delay(20); // 控制整体帧率，约50FPS
 }
