@@ -2,7 +2,7 @@
 #include <Adafruit_ADXL345_U.h>
 #include <Adafruit_Sensor.h>
 #include <NeoPixelBus.h>
-
+#include <math.h> // For sin() and PI
 // ADXL345 引脚定义
 const int SDA_PIN = 4;
 const int SCL_PIN = 5;
@@ -28,19 +28,25 @@ const float RESTITUTION_COEFFICIENT = 0.75f; // 恢复系数 (0.0 - 1.0), 0=完�
 const float BALL_MASS = 1.0f; // 假设所有小球质量为1，简化计算
 const float INV_BALL_MASS = 1.0f / BALL_MASS; // 质量的倒数，用于冲量计算
 // LED亮度 (0-255)
-const uint8_t BRIGHTNESS = 64;
-RgbColor ballColor(BRIGHTNESS, BRIGHTNESS, BRIGHTNESS); // 白色
+const uint8_t BASE_BRIGHTNESS = 64;
 
+
+// 小球动态亮度参数
+const float MIN_BALL_BRIGHTNESS_SCALE = 0.2f;  // 小球亮度变化的最小比例 ( نسبت به BASE_BRIGHTNESS)
+const float MAX_BALL_BRIGHTNESS_SCALE = 1.0f;  // 小球亮度变化的最大比例
+const float BRIGHTNESS_CYCLE_PERIOD_S = 3.0f;   // 一个完整的明暗变化周期需要的时间 (秒)
 // ADXL345 传感器对象
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345); // 传感器ID随意
 
 // NeoPixelBus 对象 (GRB颜色顺序, 800Kbps速率)
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 
-// 小球结构体
 struct Ball {
-    float x, y;   // 精确位置 (浮点数)
-    float vx, vy; // 速度
+    float x, y;
+    float vx, vy;
+    // float currentBrightness; // 移除旧的，或修改为因子
+    float brightnessFactor;      // 当前亮度比例 (0.0 to 1.0 based on min/max scale)
+    float brightnessPhaseOffset; // 亮度变化的相位偏移 (0 to 2*PI)
 };
 
 Ball balls[NUM_BALLS];
@@ -87,7 +93,12 @@ void setup() {
         
         balls[i].vx = 0;
         balls[i].vy = 0;
-        Serial.printf("Ball %d initial position: (%.2f, %.2f)\n", i, balls[i].x, balls[i].y);
+
+        // 初始化亮度相关的参数
+        balls[i].brightnessPhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI; // 随机相位偏移 (0 to 2*PI)
+        // 初始亮度因子会在loop中第一次计算时设置
+        balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE; // 或一个基于相位的初始值
+        Serial.printf("Ball %d initial position: (%.2f, %.2f), phase_offset: %.2f\n", i, balls[i].x, balls[i].y, balls[i].brightnessPhaseOffset);
     }
     lastUpdateTime = millis();
 }
@@ -98,6 +109,7 @@ void loop() {
     if (dt == 0) dt = 0.001f; // 防止dt为0
     lastUpdateTime = currentTime;
 
+    float totalTimeSeconds = currentTime / 1000.0f; // 总运行时间，用于平滑亮度变化
     // 1. 读取ADXL345传感器数据
     sensors_event_t event;
     accel.getEvent(&event);
@@ -117,6 +129,12 @@ void loop() {
 
     // 4. 更新每个小球的状态
     for (int i = 0; i < NUM_BALLS; ++i) {
+        // ---- 更新亮度 ----
+        // sin函数值在 -1 到 1 之间。我们把它映射到 0 到 1
+        float sinWave = (sin((2.0f * PI / BRIGHTNESS_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f; // 结果 0.0 to 1.0
+        // 将 0-1 的sinWave 映射到 MIN_BALL_BRIGHTNESS_SCALE 到 MAX_BALL_BRIGHTNESS_SCALE 范围
+        balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE + sinWave * (MAX_BALL_BRIGHTNESS_SCALE - MIN_BALL_BRIGHTNESS_SCALE);
+
         // 更新速度 (v = v0 + a*t)
         balls[i].vx += forceX * dt;
         balls[i].vy += forceY * dt;
@@ -227,7 +245,12 @@ void loop() {
         int ledIndex = pixelY * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - pixelX);
         
         if (ledIndex >= 0 && ledIndex < NUM_LEDS) {
-            strip.SetPixelColor(ledIndex, ballColor);
+            // 根据小球的 brightnessFactor 和 BASE_BRIGHTNESS 计算实际的颜色亮度
+            uint8_t actualBrightness = (uint8_t)(BASE_BRIGHTNESS * balls[i].brightnessFactor);
+            
+            // 创建该小球的颜色 (白色，但亮度动态)
+            RgbColor individualBallColor(actualBrightness, actualBrightness, actualBrightness);
+            strip.SetPixelColor(ledIndex, individualBallColor);
         }
     }
     strip.Show();
