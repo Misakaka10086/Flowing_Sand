@@ -50,274 +50,202 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 // 小球结构体
 struct Ball
 {
-  float x, y;
-  float vx, vy;
-  float brightnessFactor;
-  float brightnessPhaseOffset;
-  float hue;            // Current hue (0.0 to 1.0)
-  float huePhaseOffset; // Hue change phase offset (0 to 2*PI)
+    float x, y;
+    float vx, vy;
+    float brightnessFactor;
+    float brightnessPhaseOffset;
+    float hue;            // Current hue (0.0 to 1.0)
+    float huePhaseOffset; // Hue change phase offset (0 to 2*PI)
 };
 
 Ball balls[NUM_BALLS];
 unsigned long lastUpdateTime = 0;
 
-// Helper function to convert HSV to RGB
-// h, s, v range is 0-1.0
-// r, g, b range is 0-255
-RgbColor HsvToRgb(float h, float s, float v)
-{
-  float r_hsv, g_hsv, b_hsv; // Use different names to avoid conflict with RgbColor members
-  if (s == 0.0f)
-  { // Achromatic (grey)
-    r_hsv = g_hsv = b_hsv = v;
-  }
-  else
-  {
-    int i = floor(h * 6.0f);
-    float f = (h * 6.0f) - i;
-    float p = v * (1.0f - s);
-    float q = v * (1.0f - s * f);
-    float t = v * (1.0f - s * (1.0f - f));
-    i = i % 6;
-    switch (i)
-    {
-    case 0:
-      r_hsv = v;
-      g_hsv = t;
-      b_hsv = p;
-      break;
-    case 1:
-      r_hsv = q;
-      g_hsv = v;
-      b_hsv = p;
-      break;
-    case 2:
-      r_hsv = p;
-      g_hsv = v;
-      b_hsv = t;
-      break;
-    case 3:
-      r_hsv = p;
-      g_hsv = q;
-      b_hsv = v;
-      break;
-    case 4:
-      r_hsv = t;
-      g_hsv = p;
-      b_hsv = v;
-      break;
-    case 5:
-      r_hsv = v;
-      g_hsv = p;
-      b_hsv = q;
-      break;
-    default:
-      r_hsv = 0;
-      g_hsv = 0;
-      b_hsv = 0;
-      break; // Should not happen
-    }
-  }
-  return RgbColor((uint8_t)(r_hsv * 255.0f), (uint8_t)(g_hsv * 255.0f), (uint8_t)(b_hsv * 255.0f));
-}
-
 void setup()
 {
-  Serial.begin(115200);
-  Serial.println("ESP32 ADXL345 WS2812 Ball Sim - Color & Brightness Pulse");
+    Serial.begin(115200);
+    Serial.println("ESP32 ADXL345 WS2812 Ball Sim - Color & Brightness Pulse");
 
-  Wire.begin(SDA_PIN, SCL_PIN);
+    Wire.begin(SDA_PIN, SCL_PIN);
 
-  if (!accel.begin())
-  {
-    Serial.println("Could not find ADXL345");
-    while (1)
-      ;
-  }
-  accel.setRange(ADXL345_RANGE_4_G);
-
-  strip.Begin();
-  strip.Show();
-
-  // ESP32 specific: for better random numbers with random()
-  // Use an unconnected analog pin, or a pin connected to a floating wire.
-  // If no analog pin is easily accessible, use a combination of boot time and other factors.
-  // For ESP32, `esp_random()` is generally better if you are not using Arduino's random().
-  // Arduino's randomSeed(analogRead(pin)) is a common pattern.
-  // Ensure the pin used for analogRead is valid for your ESP32 board (e.g., GPIOs 32-39 usually are).
-  // Using a non-existent pin for analogRead might return 0 or a fixed value.
-  // Let's use millis() as a fallback if analogRead isn't ideal without hardware setup.
-  randomSeed(millis() + analogRead(A0)); // A0 is often GPIO36 on ESP32 DevKits
-
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    bool positionOK;
-    do
+    if (!accel.begin())
     {
-      positionOK = true;
-      balls[i].x = random(MATRIX_WIDTH * 100) / 100.0f;
-      balls[i].y = random(MATRIX_HEIGHT * 100) / 100.0f;
-      for (int j = 0; j < i; ++j)
-      {
-        float dx_init = balls[i].x - balls[j].x;
-        float dy_init = balls[i].y - balls[j].y;
-        if (dx_init * dx_init + dy_init * dy_init < MIN_SEPARATION_DIST_SQ)
+        Serial.println("Could not find ADXL345");
+        while (1)
+            ;
+    }
+    accel.setRange(ADXL345_RANGE_4_G);
+
+    strip.Begin();
+    strip.Show();
+
+    // ESP32 specific: for better random numbers with random()
+    // Use an unconnected analog pin, or a pin connected to a floating wire.
+    // If no analog pin is easily accessible, use a combination of boot time and other factors.
+    // For ESP32, `esp_random()` is generally better if you are not using Arduino's random().
+    // Arduino's randomSeed(analogRead(pin)) is a common pattern.
+    // Ensure the pin used for analogRead is valid for your ESP32 board (e.g., GPIOs 32-39 usually are).
+    // Using a non-existent pin for analogRead might return 0 or a fixed value.
+    // Let's use millis() as a fallback if analogRead isn't ideal without hardware setup.
+    randomSeed(millis() + analogRead(A0)); // A0 is often GPIO36 on ESP32 DevKits
+
+    for (int i = 0; i < NUM_BALLS; ++i)
+    {
+        bool positionOK;
+        do
         {
-          positionOK = false;
-          break;
-        }
-      }
-    } while (!positionOK);
+            positionOK = true;
+            balls[i].x = random(MATRIX_WIDTH * 100) / 100.0f;
+            balls[i].y = random(MATRIX_HEIGHT * 100) / 100.0f;
+            for (int j = 0; j < i; ++j)
+            {
+                float dx_init = balls[i].x - balls[j].x;
+                float dy_init = balls[i].y - balls[j].y;
+                if (dx_init * dx_init + dy_init * dy_init < MIN_SEPARATION_DIST_SQ)
+                {
+                    positionOK = false;
+                    break;
+                }
+            }
+        } while (!positionOK);
 
-    balls[i].vx = 0;
-    balls[i].vy = 0;
+        balls[i].vx = 0;
+        balls[i].vy = 0;
 
-    balls[i].brightnessPhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-    balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE;
+        balls[i].brightnessPhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
+        balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE;
 
-    balls[i].huePhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-    balls[i].hue = fmod(((0.0f / 1000.0f * 2.0f * PI / COLOR_CYCLE_PERIOD_S) + balls[i].huePhaseOffset) / (2.0f * PI), 1.0f);
-    if (balls[i].hue < 0)
-      balls[i].hue += 1.0f;
+        balls[i].huePhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
+        balls[i].hue = fmod(((0.0f / 1000.0f * 2.0f * PI / COLOR_CYCLE_PERIOD_S) + balls[i].huePhaseOffset) / (2.0f * PI), 1.0f);
+        if (balls[i].hue < 0)
+            balls[i].hue += 1.0f;
 
-    // Serial.printf("Ball %d init: (%.2f, %.2f), b_phase: %.2f, h_phase: %.2f\n",
-    //               i, balls[i].x, balls[i].y, balls[i].brightnessPhaseOffset, balls[i].huePhaseOffset);
-  }
-  lastUpdateTime = millis();
+        // Serial.printf("Ball %d init: (%.2f, %.2f), b_phase: %.2f, h_phase: %.2f\n",
+        //               i, balls[i].x, balls[i].y, balls[i].brightnessPhaseOffset, balls[i].huePhaseOffset);
+    }
+    lastUpdateTime = millis();
 }
 
 void loop()
 {
-  unsigned long currentTime = millis();
-  float dt = (currentTime - lastUpdateTime) / 1000.0f;
-  if (dt <= 0.0001f)
-    dt = 0.001f; // Avoid dt=0 or too small
-  lastUpdateTime = currentTime;
+    unsigned long currentTime = millis();
+    float dt = (currentTime - lastUpdateTime) / 1000.0f;
+    if (dt <= 0.0001f)
+        dt = 0.001f; // Avoid dt=0 or too small
+    lastUpdateTime = currentTime;
 
-  float totalTimeSeconds = currentTime / 1000.0f;
+    float totalTimeSeconds = currentTime / 1000.0f;
 
-  sensors_event_t event;
-  accel.getEvent(&event);
-  float rawAx = event.acceleration.x;
-  float rawAz = event.acceleration.z;
+    sensors_event_t event;
+    accel.getEvent(&event);
+    float rawAx = event.acceleration.x;
+    float rawAz = event.acceleration.z;
 
-  float ax_eff = (abs(rawAx) < SENSOR_DEAD_ZONE) ? 0 : rawAx;
-  float az_eff = (abs(rawAz) < SENSOR_DEAD_ZONE) ? 0 : rawAz;
+    float ax_eff = (abs(rawAx) < SENSOR_DEAD_ZONE) ? 0 : rawAx;
+    float az_eff = (abs(rawAz) < SENSOR_DEAD_ZONE) ? 0 : rawAz;
 
-  float forceX = -ax_eff * GRAVITY_SCALE;
-  float forceY = az_eff * GRAVITY_SCALE;
+    float forceX = -ax_eff * GRAVITY_SCALE;
+    float forceY = az_eff * GRAVITY_SCALE;
 
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    // ---- 更新亮度 ----
-    float sinWaveBright = (sin((2.0f * PI / BRIGHTNESS_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f;
-    balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE + sinWaveBright * (MAX_BALL_BRIGHTNESS_SCALE - MIN_BALL_BRIGHTNESS_SCALE);
-
-    // ---- 更新色调 (Hue) ----
-    float rawHueAngle = (2.0f * PI / COLOR_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].huePhaseOffset;
-    balls[i].hue = fmod(rawHueAngle / (2.0f * PI), 1.0f);
-    if (balls[i].hue < 0.0f)
-      balls[i].hue += 1.0f;
-
-    // ---- 更新物理运动 ----
-    balls[i].vx += forceX * dt;
-    balls[i].vy += forceY * dt;
-    balls[i].vx *= DAMPING_FACTOR;
-    balls[i].vy *= DAMPING_FACTOR;
-    balls[i].x += balls[i].vx * dt;
-    balls[i].y += balls[i].vy * dt;
-
-    // ---- 边界碰撞 ---- (Using your -0.5 factor from the provided code)
-    if (balls[i].x < BALL_RADIUS)
+    for (int i = 0; i < NUM_BALLS; ++i)
     {
-      balls[i].x = BALL_RADIUS;
-      balls[i].vx *= -0.5;
-    }
-    else if (balls[i].x > MATRIX_WIDTH - BALL_RADIUS)
-    {
-      balls[i].x = MATRIX_WIDTH - BALL_RADIUS;
-      balls[i].vx *= -0.5;
-    }
-    if (balls[i].y < BALL_RADIUS)
-    {
-      balls[i].y = BALL_RADIUS;
-      balls[i].vy *= -0.5;
-    }
-    else if (balls[i].y > MATRIX_HEIGHT - BALL_RADIUS)
-    {
-      balls[i].y = MATRIX_HEIGHT - BALL_RADIUS;
-      balls[i].vy *= -0.5;
-    }
-  }
+        // ---- 更新亮度 ----
+        float sinWaveBright = (sin((2.0f * PI / BRIGHTNESS_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f;
+        balls[i].brightnessFactor = MIN_BALL_BRIGHTNESS_SCALE + sinWaveBright * (MAX_BALL_BRIGHTNESS_SCALE - MIN_BALL_BRIGHTNESS_SCALE);
 
-  // ---- 小球间碰撞 ----
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    for (int j = i + 1; j < NUM_BALLS; ++j)
-    {
-      float dx = balls[j].x - balls[i].x;
-      float dy = balls[j].y - balls[i].y;
-      float distSq = dx * dx + dy * dy;
+        // ---- 更新色调 (Hue) ----
+        float rawHueAngle = (2.0f * PI / COLOR_CYCLE_PERIOD_S * totalTimeSeconds) + balls[i].huePhaseOffset;
+        balls[i].hue = fmod(rawHueAngle / (2.0f * PI), 1.0f);
+        if (balls[i].hue < 0.0f)
+            balls[i].hue += 1.0f;
 
-      if (distSq < MIN_SEPARATION_DIST_SQ && distSq > 0.00001f)
-      {
-        float dist = sqrt(distSq);
-        float nx = dx / dist;
-        float ny = dy / dist;
-        float rvx = balls[j].vx - balls[i].vx;
-        float rvy = balls[j].vy - balls[i].vy;
-        float velAlongNormal = rvx * nx + rvy * ny;
+        // ---- 更新物理运动 ----
+        balls[i].vx += forceX * dt;
+        balls[i].vy += forceY * dt;
+        balls[i].vx *= DAMPING_FACTOR;
+        balls[i].vy *= DAMPING_FACTOR;
+        balls[i].x += balls[i].vx * dt;
+        balls[i].y += balls[i].vy * dt;
 
-        if (velAlongNormal < 0)
+        // ---- 边界碰撞 ---- (Using your -0.5 factor from the provided code)
+        if (balls[i].x < BALL_RADIUS)
         {
-          float impulseMagnitude = -(1.0f + RESTITUTION_COEFFICIENT) * velAlongNormal / (2.0f * INV_BALL_MASS);
-          balls[i].vx -= impulseMagnitude * nx * INV_BALL_MASS;
-          balls[i].vy -= impulseMagnitude * ny * INV_BALL_MASS;
-          balls[j].vx += impulseMagnitude * nx * INV_BALL_MASS;
-          balls[j].vy += impulseMagnitude * ny * INV_BALL_MASS;
+            balls[i].x = BALL_RADIUS;
+            balls[i].vx *= -0.5;
         }
-
-        float overlap = (2 * BALL_RADIUS) - dist;
-        float correction_factor = 0.5f;
-        balls[i].x -= nx * overlap * correction_factor;
-        balls[i].y -= ny * overlap * correction_factor;
-        balls[j].x += nx * overlap * correction_factor;
-        balls[j].y += ny * overlap * correction_factor;
-      }
+        else if (balls[i].x > MATRIX_WIDTH - BALL_RADIUS)
+        {
+            balls[i].x = MATRIX_WIDTH - BALL_RADIUS;
+            balls[i].vx *= -0.5;
+        }
+        if (balls[i].y < BALL_RADIUS)
+        {
+            balls[i].y = BALL_RADIUS;
+            balls[i].vy *= -0.5;
+        }
+        else if (balls[i].y > MATRIX_HEIGHT - BALL_RADIUS)
+        {
+            balls[i].y = MATRIX_HEIGHT - BALL_RADIUS;
+            balls[i].vy *= -0.5;
+        }
     }
-  }
 
-  // ---- 渲染小球 ----
-  strip.ClearTo(RgbColor(0, 0, 0));
-
-  for (int i = 0; i < NUM_BALLS; ++i)
-  {
-    int pixelX = round(balls[i].x - BALL_RADIUS);
-    int pixelY = round(balls[i].y - BALL_RADIUS);
-    pixelX = constrain(pixelX, 0, MATRIX_WIDTH - 1);
-    pixelY = constrain(pixelY, 0, MATRIX_HEIGHT - 1);
-    int ledIndex = pixelY * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - pixelX);
-
-    if (ledIndex >= 0 && ledIndex < NUM_LEDS)
+    // ---- 小球间碰撞 ----
+    for (int i = 0; i < NUM_BALLS; ++i)
     {
-      // 1. HSV 色彩 (V=1.0 for full intensity before brightness scaling)
-      RgbColor baseRgbColor = HsvToRgb(balls[i].hue, BALL_COLOR_SATURATION, 1.0f);
+        for (int j = i + 1; j < NUM_BALLS; ++j)
+        {
+            float dx = balls[j].x - balls[i].x;
+            float dy = balls[j].y - balls[i].y;
+            float distSq = dx * dx + dy * dy;
 
-      // 2. 应用动态亮度和全局基础亮度
-      // balls[i].brightnessFactor is already scaled (MIN_SCALE to MAX_SCALE)
-      // BASE_BRIGHTNESS is the overall max brightness (0-255)
-      float r_final = baseRgbColor.R * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
-      float g_final = baseRgbColor.G * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
-      float b_final = baseRgbColor.B * balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f);
+            if (distSq < MIN_SEPARATION_DIST_SQ && distSq > 0.00001f)
+            {
+                float dist = sqrt(distSq);
+                float nx = dx / dist;
+                float ny = dy / dist;
+                float rvx = balls[j].vx - balls[i].vx;
+                float rvy = balls[j].vy - balls[i].vy;
+                float velAlongNormal = rvx * nx + rvy * ny;
 
-      RgbColor finalBallColor(
-          (uint8_t)constrain(r_final, 0, 255),
-          (uint8_t)constrain(g_final, 0, 255),
-          (uint8_t)constrain(b_final, 0, 255));
-      strip.SetPixelColor(ledIndex, finalBallColor);
+                if (velAlongNormal < 0)
+                {
+                    float impulseMagnitude = -(1.0f + RESTITUTION_COEFFICIENT) * velAlongNormal / (2.0f * INV_BALL_MASS);
+                    balls[i].vx -= impulseMagnitude * nx * INV_BALL_MASS;
+                    balls[i].vy -= impulseMagnitude * ny * INV_BALL_MASS;
+                    balls[j].vx += impulseMagnitude * nx * INV_BALL_MASS;
+                    balls[j].vy += impulseMagnitude * ny * INV_BALL_MASS;
+                }
+
+                float overlap = (2 * BALL_RADIUS) - dist;
+                float correction_factor = 0.5f;
+                balls[i].x -= nx * overlap * correction_factor;
+                balls[i].y -= ny * overlap * correction_factor;
+                balls[j].x += nx * overlap * correction_factor;
+                balls[j].y += ny * overlap * correction_factor;
+            }
+        }
     }
-  }
-  strip.Show();
 
-  delay(5);
+    // ---- 渲染小球 ----
+    strip.ClearTo(RgbColor(0, 0, 0));
+
+    for (int i = 0; i < NUM_BALLS; ++i)
+    {
+        int pixelX = round(balls[i].x - BALL_RADIUS);
+        int pixelY = round(balls[i].y - BALL_RADIUS);
+        pixelX = constrain(pixelX, 0, MATRIX_WIDTH - 1);
+        pixelY = constrain(pixelY, 0, MATRIX_HEIGHT - 1);
+        int ledIndex = pixelY * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - pixelX);
+
+        if (ledIndex >= 0 && ledIndex < NUM_LEDS)
+        {
+
+            HsbColor hsbColor(balls[i].hue, BALL_COLOR_SATURATION, balls[i].brightnessFactor * (BASE_BRIGHTNESS / 255.0f));
+            strip.SetPixelColor(ledIndex, hsbColor);
+        }
+    }
+    strip.Show();
+
+    delay(5);
 }
