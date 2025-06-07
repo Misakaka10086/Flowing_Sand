@@ -5,7 +5,7 @@
 #include <AsyncMqttClient.h>
 #include "../../../include/secrets.h" // 在头文件中包含，因为实现也在这里
 
-typedef void (*EffectChangeCallback)(int effectIndex);
+typedef void (*CommandCallback)(const char* commandPayload);
 
 class MqttController
 {
@@ -13,8 +13,8 @@ public:
     MqttController();
 
     // ***** Begin 的实现现在直接放在头文件中 *****
-    void Begin(EffectChangeCallback callback) {
-        _effectChangeCallback = callback;
+    void Begin(CommandCallback callback) {
+        _commandCallback = callback;
 
         _mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)this, [](TimerHandle_t xTimer) {
             static_cast<MqttController*>(pvTimerGetTimerID(xTimer))->connectToMqtt();
@@ -64,7 +64,7 @@ private:
     TimerHandle_t _mqttReconnectTimer;
     TimerHandle_t _wifiReconnectTimer;
 
-    EffectChangeCallback _effectChangeCallback;
+    CommandCallback _commandCallback;
 
     // MQTT事件处理函数
     void onMqttConnect(bool sessionPresent);

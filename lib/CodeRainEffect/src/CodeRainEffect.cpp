@@ -1,5 +1,5 @@
 #include "CodeRainEffect.h"
-
+#include <ArduinoJson.h>
 // 定义和初始化静态预设
 const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .minSpeed = 12.0f,
@@ -58,6 +58,28 @@ void CodeRainEffect::setParameters(const Parameters& params) {
             _codeStreams[i].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
         }
     }
+}
+
+void CodeRainEffect::setParameters(const char* jsonParams) {
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, jsonParams);
+    if (error) {
+        Serial.println("CodeRainEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        return;
+    }
+    _params.minSpeed = doc["minSpeed"] | _params.minSpeed;
+    _params.maxSpeed = doc["maxSpeed"] | _params.maxSpeed;
+    _params.minStreamLength = doc["minStreamLength"] | _params.minStreamLength;
+    _params.maxStreamLength = doc["maxStreamLength"] | _params.maxStreamLength;
+    _params.spawnProbability = doc["spawnProbability"] | _params.spawnProbability;
+    _params.minSpawnCooldownMs = doc["minSpawnCooldownMs"] | _params.minSpawnCooldownMs;    
+    _params.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"] | _params.maxSpawnCooldownMs;
+    _params.baseHue = doc["baseHue"] | _params.baseHue;
+    _params.hueVariation = doc["hueVariation"] | _params.hueVariation;
+    _params.saturation = doc["saturation"] | _params.saturation;
+    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
+    
+    Serial.println("CodeRainEffect parameters updated via JSON.");
 }
 
 void CodeRainEffect::Update() {

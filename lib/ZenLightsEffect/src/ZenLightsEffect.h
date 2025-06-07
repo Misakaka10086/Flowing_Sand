@@ -50,6 +50,7 @@ public:
 
     // --- 新的公共配置接口 ---
     void setParameters(const Parameters& params);
+    void setParameters(const char* jsonParams);
 
     // (可选) 保留旧的单个设置接口，或者移除它们以强制使用参数结构体
     // void setMaxActiveLeds(int count);

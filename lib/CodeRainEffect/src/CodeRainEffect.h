@@ -43,6 +43,7 @@ public:
 
     void Update();
     void setParameters(const Parameters& params);
+    void setParameters(const char* jsonParams);
 
 private:
     struct CodeStream {

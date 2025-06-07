@@ -2,7 +2,7 @@
 // "secrets.h" 不再需要在这里包含，因为它已经在头文件中了
 
 MqttController::MqttController() {
-    _effectChangeCallback = nullptr;
+    _commandCallback = nullptr;
 }
 
 // ***** Begin 的实现已移至 MqttController.h *****
@@ -54,8 +54,7 @@ void MqttController::onMqttMessage(char* topic, char* payload, AsyncMqttClientMe
     message[len] = '\0';
     Serial.printf("Message received on topic %s: %s\n", topic, message);
 
-    long effectIndex = strtol(message, NULL, 10);
-    if (_effectChangeCallback != nullptr) {
-        _effectChangeCallback((int)effectIndex);
+    if (_commandCallback != nullptr) {
+        _commandCallback(message); // 直接传递整个 payload
     }
 }

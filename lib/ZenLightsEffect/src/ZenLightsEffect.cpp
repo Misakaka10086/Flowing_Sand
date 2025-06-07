@@ -1,5 +1,5 @@
 #include "ZenLightsEffect.h"
-
+#include <ArduinoJson.h>
 // ***** 3. 在.cpp文件中定义和初始化静态预设 *****
 const ZenLightsEffect::Parameters ZenLightsEffect::ZenPreset = {
     .maxActiveLeds = 8,
@@ -44,7 +44,25 @@ void ZenLightsEffect::setParameters(const Parameters& params) {
     _params = params;
 }
 
+void ZenLightsEffect::setParameters(const char* jsonParams) {
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, jsonParams);
+    if (error) {
+        Serial.println("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        return;
+    }
+    _params.maxActiveLeds = doc["maxActiveLeds"] | _params.maxActiveLeds;
+    _params.minDurationMs = doc["minDurationMs"] | _params.minDurationMs;
+    _params.maxDurationMs = doc["maxDurationMs"] | _params.maxDurationMs;
+    _params.minPeakBrightness = doc["minPeakBrightness"] | _params.minPeakBrightness;
+    _params.maxPeakBrightness = doc["maxPeakBrightness"] | _params.maxPeakBrightness;
+    _params.hueMin = doc["hueMin"] | _params.hueMin;
+    _params.hueMax = doc["hueMax"] | _params.hueMax;
+    _params.saturation = doc["saturation"] | _params.saturation;
+    _params.spawnIntervalMs = doc["spawnIntervalMs"] | _params.spawnIntervalMs;
 
+    Serial.println("ZenLightsEffect parameters updated via JSON.");
+}
 void ZenLightsEffect::Update() {
     if (_strip == nullptr || _ledStates == nullptr) return;
 

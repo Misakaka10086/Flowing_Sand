@@ -1,5 +1,5 @@
 #include "RippleEffect.h"
-
+#include <ArduinoJson.h>
 // 定义和初始化静态预设
 const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
     .maxRipples = 5,
@@ -49,6 +49,26 @@ void RippleEffect::setParameters(const Parameters& params) {
         _nextRippleIndex = 0;
     }
 }
+
+void RippleEffect::setParameters(const char* jsonParams) {
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, jsonParams);
+    if (error) {
+        Serial.println("RippleEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        return;
+    }
+    _params.maxRipples = doc["maxRipples"] | _params.maxRipples;
+    _params.speed = doc["speed"] | _params.speed;
+    _params.thickness = doc["thickness"] | _params.thickness;
+    _params.spawnIntervalS = doc["spawnIntervalS"] | _params.spawnIntervalS;
+    _params.maxRadius = doc["maxRadius"] | _params.maxRadius;
+    _params.randomOrigin = doc["randomOrigin"] | _params.randomOrigin;
+    _params.saturation = doc["saturation"] | _params.saturation;
+    _params.brightness = doc["brightness"] | _params.brightness;
+
+    Serial.println("RippleEffect parameters updated via JSON.");
+}
+
 
 void RippleEffect::Update() {
     if (_strip == nullptr || _ripples == nullptr) return;
