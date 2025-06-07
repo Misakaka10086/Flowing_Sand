@@ -18,7 +18,7 @@ public:
         float baseHue; // 0.0 to 1.0
         float hueVariation;
         float saturation;
-        uint8_t baseBrightness; // 0-255, for HSB conversion
+        float baseBrightness; // 0-1, for HSB conversion
     };
 
     static const Parameters ClassicMatrixPreset;

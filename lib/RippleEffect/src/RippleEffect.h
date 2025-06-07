@@ -15,7 +15,7 @@ public:
         float maxRadius;
         bool randomOrigin;
         float saturation;
-        float brightness; // 0.0 to 1.0
+        float baseBrightness; // 0.0 to 1.0
     };
 
     static const Parameters WaterDropPreset;

@@ -12,7 +12,7 @@ const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .baseHue = 0.33f, // Green
     .hueVariation = 0.05f,
     .saturation = 1.0f,
-    .baseBrightness = 220
+    .baseBrightness = 0.8f
 };
 
 const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
@@ -26,7 +26,7 @@ const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
     .baseHue = 0.0f, // 红色 "glitch"
     .hueVariation = 0.02f,
     .saturation = 1.0f,
-    .baseBrightness = 255
+    .baseBrightness = 1.0f
 };
 
 
@@ -136,7 +136,7 @@ void CodeRainEffect::Update() {
                         brightnessFactor *= (random(70, 101) / 100.0f);
                     }
                     
-                    HsbColor hsbColor(_codeStreams[x].hue, _params.saturation, brightnessFactor * (_params.baseBrightness / 255.0f));
+                    HsbColor hsbColor(_codeStreams[x].hue, _params.saturation, brightnessFactor * _params.baseBrightness);
                     int logicalDrawY = _matrixHeight - 1 - charY;
                     int ledIndex = logicalDrawY * _matrixWidth + (_matrixWidth - 1 - x);
 

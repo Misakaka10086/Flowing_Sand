@@ -14,6 +14,7 @@ public:
         unsigned long maxDurationMs;
         float minPeakBrightness; // 0.0 - 1.0
         float maxPeakBrightness; // 0.0 - 1.0
+        float baseBrightness;    // 0.0 - 1.0, 控制整体亮度级别
         float hueMin;            // 0.0 - 1.0
         float hueMax;            // 0.0 - 1.0
         float saturation;        // 0.0 - 1.0

@@ -9,7 +9,7 @@ const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
     .maxRadius = 8 * 1.2f,
     .randomOrigin = false, // 中心水滴
     .saturation = 1.0f,
-    .brightness = 0.8f
+    .baseBrightness = 0.8f
 };
 
 const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
@@ -20,7 +20,7 @@ const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
     .maxRadius = 8 * 1.5f,
     .randomOrigin = true, // 随机脉冲
     .saturation = 0.7f,
-    .brightness = 0.2f
+    .baseBrightness = 0.2f
 };
 
 RippleEffect::RippleEffect() {
@@ -64,7 +64,7 @@ void RippleEffect::setParameters(const char* jsonParams) {
     _params.maxRadius = doc["maxRadius"] | _params.maxRadius;
     _params.randomOrigin = doc["randomOrigin"] | _params.randomOrigin;
     _params.saturation = doc["saturation"] | _params.saturation;
-    _params.brightness = doc["brightness"] | _params.brightness;
+    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
 
     Serial.println("RippleEffect parameters updated via JSON.");
 }
@@ -128,7 +128,7 @@ void RippleEffect::Update() {
                         intensityFactor = constrain(intensityFactor, 0.0f, 1.0f);
                         if (intensityFactor > maxIntensityForThisPixel) {
                             maxIntensityForThisPixel = intensityFactor;
-                            float finalBrightness = maxIntensityForThisPixel * _params.brightness;
+                            float finalBrightness = maxIntensityForThisPixel * _params.baseBrightness;
                             colorForThisPixel = HsbColor(_ripples[r_idx].hue, _params.saturation, finalBrightness);
                         }
                     }
