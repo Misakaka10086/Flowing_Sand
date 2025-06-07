@@ -12,7 +12,9 @@ const GravityBallsEffect::Parameters GravityBallsEffect::BouncyPreset = {
     .minBrightnessScale = 0.2f,
     .maxBrightnessScale = 1.0f,
     .colorCyclePeriodS = 10.0f,
-    .ballColorSaturation = 1.0f};
+    .ballColorSaturation = 1.0f,
+    .prePara = "Bouncy"
+};
 
 const GravityBallsEffect::Parameters GravityBallsEffect::PlasmaPreset = {
     .numBalls = 30,         // 更多的球
@@ -25,7 +27,9 @@ const GravityBallsEffect::Parameters GravityBallsEffect::PlasmaPreset = {
     .minBrightnessScale = 0.4f,
     .maxBrightnessScale = 1.0f,
     .colorCyclePeriodS = 15.0f, // 颜色变化更慢
-    .ballColorSaturation = 0.8f};
+    .ballColorSaturation = 0.8f,
+    .prePara = "Plasma"
+};
 
 GravityBallsEffect::GravityBallsEffect()
 {
@@ -58,25 +62,10 @@ void GravityBallsEffect::setParameters(const Parameters &params)
 void GravityBallsEffect::setParameters(const char* jsonParams) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
-
     if (error) {
-        Serial.print(F("GravityBallsEffect::setParameters failed to parse JSON: "));
-        Serial.println(error.c_str());
+        Serial.println("GravityBallsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
-
-    // 从JSON中读取参数并更新_params结构体
-    // 使用 doc["key"] | _params.key 的形式，如果JSON中没有这个键，则保留原值
-    _params.gravityScale = doc["gravityScale"] | _params.gravityScale;
-    _params.dampingFactor = doc["dampingFactor"] | _params.dampingFactor;
-    _params.sensorDeadZone = doc["sensorDeadZone"] | _params.sensorDeadZone;
-    _params.restitution = doc["restitution"] | _params.restitution;
-    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
-    _params.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"] | _params.brightnessCyclePeriodS;
-    _params.minBrightnessScale = doc["minBrightnessScale"] | _params.minBrightnessScale;
-    _params.maxBrightnessScale = doc["maxBrightnessScale"] | _params.maxBrightnessScale;
-    _params.colorCyclePeriodS = doc["colorCyclePeriodS"] | _params.colorCyclePeriodS;
-    _params.ballColorSaturation = doc["ballColorSaturation"] | _params.ballColorSaturation;
 
     // 对于小球数量的改变，需要特别处理，因为它涉及到内存重新分配
     if (doc["numBalls"].is<uint8_t>()) {
@@ -91,8 +80,51 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
             }
         }
     }
+
+    // 更新其他参数
+    _params.gravityScale = doc["gravityScale"] | _params.gravityScale;
+    _params.dampingFactor = doc["dampingFactor"] | _params.dampingFactor;
+    _params.sensorDeadZone = doc["sensorDeadZone"] | _params.sensorDeadZone;
+    _params.restitution = doc["restitution"] | _params.restitution;
+    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
+    _params.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"] | _params.brightnessCyclePeriodS;
+    _params.minBrightnessScale = doc["minBrightnessScale"] | _params.minBrightnessScale;
+    _params.maxBrightnessScale = doc["maxBrightnessScale"] | _params.maxBrightnessScale;
+    _params.colorCyclePeriodS = doc["colorCyclePeriodS"] | _params.colorCyclePeriodS;
+    _params.ballColorSaturation = doc["ballColorSaturation"] | _params.ballColorSaturation;
+    
+    // 如果JSON中包含prePara字段，则更新它
+    if (doc["prePara"].is<String>()) {
+        const char* newPrePara = doc["prePara"].as<String>().c_str();
+        if (strcmp(newPrePara, "Bouncy") == 0) {
+            _params.prePara = BouncyPreset.prePara;
+        } else if (strcmp(newPrePara, "Plasma") == 0) {
+            _params.prePara = PlasmaPreset.prePara;
+        }
+    }
     
     Serial.println("GravityBallsEffect parameters updated via JSON.");
+}
+
+void GravityBallsEffect::setPreset(const char* presetName) {
+    if (strcmp(presetName, "next") == 0) {
+        // 使用prePara字段来判断当前预设
+        if (strcmp(_params.prePara, "Bouncy") == 0) {
+            setParameters(PlasmaPreset);
+            Serial.println("Switched to PlasmaPreset");
+        } else {
+            setParameters(BouncyPreset);
+            Serial.println("Switched to BouncyPreset");
+        }
+    } else if (strcmp(presetName, "Bouncy") == 0) {
+        setParameters(BouncyPreset);
+        Serial.println("Switched to BouncyPreset");
+    } else if (strcmp(presetName, "Plasma") == 0) {
+        setParameters(PlasmaPreset);
+        Serial.println("Switched to PlasmaPreset");
+    } else {
+        Serial.println("Unknown preset name: " + String(presetName));
+    }
 }
 
 void GravityBallsEffect::initBalls()

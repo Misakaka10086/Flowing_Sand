@@ -2,28 +2,32 @@
 #include <ArduinoJson.h>
 // ***** 3. 在.cpp文件中定义和初始化静态预设 *****
 const ZenLightsEffect::Parameters ZenLightsEffect::ZenPreset = {
-    .maxActiveLeds = 8,
-    .minDurationMs = 4000,
-    .maxDurationMs = 8000,
-    .minPeakBrightness = 0.1f,
-    .maxPeakBrightness = 0.4f,
-    .baseBrightness = 1.0f,
-    .hueMin = 0.55f, // 淡蓝色
-    .hueMax = 0.65f, // 偏青色
-    .saturation = 0.6f,
-    .spawnIntervalMs = 300};
+    .maxActiveLeds = 5,
+    .minDurationMs = 2000,
+    .maxDurationMs = 4000,
+    .minPeakBrightness = 0.3f,
+    .maxPeakBrightness = 0.7f,
+    .baseBrightness = 0.5f,
+    .hueMin = 0.5f,  // 蓝绿色范围
+    .hueMax = 0.6f,
+    .saturation = 0.8f,
+    .spawnIntervalMs = 500,
+    .prePara = "Zen"
+};
 
 const ZenLightsEffect::Parameters ZenLightsEffect::FireflyPreset = {
-    .maxActiveLeds = 12,
-    .minDurationMs = 1500,
-    .maxDurationMs = 3500,
+    .maxActiveLeds = 8,
+    .minDurationMs = 1000,
+    .maxDurationMs = 3000,
     .minPeakBrightness = 0.4f,
     .maxPeakBrightness = 0.9f,
-    .baseBrightness = 1.0f,
-    .hueMin = 0.12f, // 琥珀色
-    .hueMax = 0.16f, // 黄色
-    .saturation = 1.0f,
-    .spawnIntervalMs = 150};
+    .baseBrightness = 0.7f,
+    .hueMin = 0.1f,  // 温暖的黄色范围
+    .hueMax = 0.2f,
+    .saturation = 0.9f,
+    .spawnIntervalMs = 300,
+    .prePara = "Firefly"
+};
 
 ZenLightsEffect::ZenLightsEffect()
 {
@@ -56,7 +60,40 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
         Serial.println("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
-    _params.maxActiveLeds = doc["maxActiveLeds"] | _params.maxActiveLeds;
+
+    // // 对于最大活动灯珠数的改变，需要特别处理，因为它涉及到内存重新分配
+    if (doc["maxActiveLeds"].is<int>()) {
+        int newMaxActiveLeds = doc["maxActiveLeds"].as<int>();
+        if (newMaxActiveLeds != _params.maxActiveLeds) {
+            _params.maxActiveLeds = newMaxActiveLeds;
+            if (_strip != nullptr) { // 确保已经Begin
+                // 创建新的状态数组
+                LedEffectState* newLedStates = new LedEffectState[_numLeds];
+                
+                // 初始化新数组
+                for (uint16_t i = 0; i < _numLeds; i++) {
+                    newLedStates[i].isActive = false;
+                }
+                
+                // 如果存在旧的状态数组，复制当前活动的LED状态
+                if (_ledStates != nullptr) {
+                    for (uint16_t i = 0; i < _numLeds; i++) {
+                        if (_ledStates[i].isActive) {
+                            // 保持当前活动的LED状态不变
+                            newLedStates[i] = _ledStates[i];
+                        }
+                    }
+                    delete[] _ledStates;
+                }
+                
+                // 更新指针
+                _ledStates = newLedStates;
+                Serial.printf("ZenLightsEffect: Maximum active LEDs changed to %d\n", _params.maxActiveLeds);
+            }
+        }
+    }
+    // _params.maxActiveLeds = doc["maxActiveLeds"] | _params.maxActiveLeds;
+    // 更新其他参数
     _params.minDurationMs = doc["minDurationMs"] | _params.minDurationMs;
     _params.maxDurationMs = doc["maxDurationMs"] | _params.maxDurationMs;
     _params.minPeakBrightness = doc["minPeakBrightness"] | _params.minPeakBrightness;
@@ -66,9 +103,41 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
     _params.hueMax = doc["hueMax"] | _params.hueMax;
     _params.saturation = doc["saturation"] | _params.saturation;
     _params.spawnIntervalMs = doc["spawnIntervalMs"] | _params.spawnIntervalMs;
-
+    
+    // 如果JSON中包含prePara字段，则更新它
+    if (doc["prePara"].is<String>()) {
+        const char* newPrePara = doc["prePara"].as<String>().c_str();
+        if (strcmp(newPrePara, "Zen") == 0) {
+            _params.prePara = ZenPreset.prePara;
+        } else if (strcmp(newPrePara, "Firefly") == 0) {
+            _params.prePara = FireflyPreset.prePara;
+        }
+    }
+    
     Serial.println("ZenLightsEffect parameters updated via JSON.");
 }
+
+void ZenLightsEffect::setPreset(const char* presetName) {
+    if (strcmp(presetName, "next") == 0) {
+        // 使用prePara字段来判断当前预设
+        if (strcmp(_params.prePara, "Zen") == 0) {
+            setParameters(FireflyPreset);
+            Serial.println("Switched to FireflyPreset");
+        } else {
+            setParameters(ZenPreset);
+            Serial.println("Switched to ZenPreset");
+        }
+    } else if (strcmp(presetName, "Zen") == 0) {
+        setParameters(ZenPreset);
+        Serial.println("Switched to ZenPreset");
+    } else if (strcmp(presetName, "Firefly") == 0) {
+        setParameters(FireflyPreset);
+        Serial.println("Switched to FireflyPreset");
+    } else {
+        Serial.println("Unknown preset name: " + String(presetName));
+    }
+}
+
 void ZenLightsEffect::Update()
 {
     if (_strip == nullptr || _ledStates == nullptr)

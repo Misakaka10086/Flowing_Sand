@@ -9,7 +9,8 @@ const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
     .maxRadius = 8 * 1.2f,
     .randomOrigin = false, // 中心水滴
     .saturation = 1.0f,
-    .baseBrightness = 0.8f
+    .baseBrightness = 0.8f,
+    .prePara = "WaterDrop"
 };
 
 const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
@@ -20,7 +21,8 @@ const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
     .maxRadius = 8 * 1.5f,
     .randomOrigin = true, // 随机脉冲
     .saturation = 0.7f,
-    .baseBrightness = 0.2f
+    .baseBrightness = 0.2f,
+    .prePara = "EnergyPulse"
 };
 
 RippleEffect::RippleEffect() {
@@ -57,7 +59,20 @@ void RippleEffect::setParameters(const char* jsonParams) {
         Serial.println("RippleEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
-    _params.maxRipples = doc["maxRipples"] | _params.maxRipples;
+
+    // 对于最大波纹数的改变，需要特别处理，因为它涉及到内存重新分配
+    if (doc["maxRipples"].is<uint8_t>()) {
+        uint8_t newMaxRipples = doc["maxRipples"].as<uint8_t>();
+        if (newMaxRipples != _params.maxRipples) {
+            _params.maxRipples = newMaxRipples;
+            if (_strip != nullptr) { // 确保已经Begin
+                setParameters(_params); // 这会触发内存重新分配
+                Serial.printf("RippleEffect: Maximum ripples changed to %d\n", _params.maxRipples);
+            }
+        }
+    }
+
+    // 更新其他参数
     _params.speed = doc["speed"] | _params.speed;
     _params.thickness = doc["thickness"] | _params.thickness;
     _params.spawnIntervalS = doc["spawnIntervalS"] | _params.spawnIntervalS;
@@ -65,10 +80,40 @@ void RippleEffect::setParameters(const char* jsonParams) {
     _params.randomOrigin = doc["randomOrigin"] | _params.randomOrigin;
     _params.saturation = doc["saturation"] | _params.saturation;
     _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
-
+    
+    // 如果JSON中包含prePara字段，则更新它
+    if (doc["prePara"].is<String>()) {
+        const char* newPrePara = doc["prePara"].as<String>().c_str();
+        if (strcmp(newPrePara, "WaterDrop") == 0) {
+            _params.prePara = WaterDropPreset.prePara;
+        } else if (strcmp(newPrePara, "EnergyPulse") == 0) {
+            _params.prePara = EnergyPulsePreset.prePara;
+        }
+    }
+    
     Serial.println("RippleEffect parameters updated via JSON.");
 }
 
+void RippleEffect::setPreset(const char* presetName) {
+    if (strcmp(presetName, "next") == 0) {
+        // 使用prePara字段来判断当前预设
+        if (strcmp(_params.prePara, "WaterDrop") == 0) {
+            setParameters(EnergyPulsePreset);
+            Serial.println("Switched to EnergyPulsePreset");
+        } else {
+            setParameters(WaterDropPreset);
+            Serial.println("Switched to WaterDropPreset");
+        }
+    } else if (strcmp(presetName, "WaterDrop") == 0) {
+        setParameters(WaterDropPreset);
+        Serial.println("Switched to WaterDropPreset");
+    } else if (strcmp(presetName, "EnergyPulse") == 0) {
+        setParameters(EnergyPulsePreset);
+        Serial.println("Switched to EnergyPulsePreset");
+    } else {
+        Serial.println("Unknown preset name: " + String(presetName));
+    }
+}
 
 void RippleEffect::Update() {
     if (_strip == nullptr || _ripples == nullptr) return;

@@ -16,6 +16,7 @@ public:
         bool randomOrigin;
         float saturation;
         float baseBrightness; // 0.0 to 1.0
+        const char* prePara; // 新增字段，用于标识当前预设
     };
 
     static const Parameters WaterDropPreset;
@@ -41,6 +42,7 @@ public:
     void Update();
     void setParameters(const Parameters& params);
     void setParameters(const char* jsonParams);
+    void setPreset(const char* presetName); // 新增预设切换方法
 
 private:
     struct Ripple {

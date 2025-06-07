@@ -1,0 +1,26 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# ArduinoJson 使用规则
+
+## 1. JsonDocument 使用规则
+- 使用 `JsonDocument` 替代已弃用的 `DynamicJsonDocument`
+- 不需要指定文档大小，`JsonDocument` 会自动处理内存分配
+- 示例：
+```cpp
+JsonDocument doc;
+DeserializationError error = deserializeJson(doc, jsonParams);
+```
+
+## 2. JSON 键值检查规则
+- 使用 `is<T>()` 方法替代已弃用的 `containsKey()` 方法
+- 这种方式同时检查键是否存在和值类型是否正确
+- 示例：
+```cpp
+if (doc["key"].is<uint8_t>()) {
+    uint8_t value = doc["key"].as<uint8_t>();
+}
+
+``` 

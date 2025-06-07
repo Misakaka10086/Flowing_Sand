@@ -34,6 +34,29 @@ void EffectController::processCommand(const char* jsonCommand) {
         Serial.printf("Switched to effect: %s\n", effectName);
     }
 
+    // 处理预设切换
+    const char* presetName = doc["prePara"];
+    if (presetName) {
+        switch (_currentEffect) {
+            case EffectType::CODE_RAIN:
+                codeRainEffect.setPreset(presetName);
+                break;
+            case EffectType::GRAVITY_BALLS:
+                gravityEffect.setPreset(presetName);
+                break;
+            case EffectType::RIPPLE:
+                rippleEffect.setPreset(presetName);
+                break;
+            case EffectType::ZEN_LIGHTS:
+                zenEffect.setPreset(presetName);
+                break;
+            // 其他效果的预设切换可以在这里添加
+            default:
+                Serial.println("Preset switching not supported for current effect");
+                break;
+        }
+    }
+
     // 如果 `params` 字段存在，就将其传递给当前的效果类
     if (doc["params"].is<JsonObject>()) {
         JsonObject paramsObj = doc["params"].as<JsonObject>();

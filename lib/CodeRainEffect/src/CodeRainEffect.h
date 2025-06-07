@@ -19,6 +19,7 @@ public:
         float hueVariation;
         float saturation;
         float baseBrightness; // 0-1, for HSB conversion
+        const char* prePara; // 新增字段，用于标识当前预设
     };
 
     static const Parameters ClassicMatrixPreset;
@@ -44,6 +45,7 @@ public:
     void Update();
     void setParameters(const Parameters& params);
     void setParameters(const char* jsonParams);
+    void setPreset(const char* presetName);
 
 private:
     struct CodeStream {

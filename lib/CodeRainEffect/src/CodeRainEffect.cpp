@@ -12,7 +12,8 @@ const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .baseHue = 0.33f, // Green
     .hueVariation = 0.05f,
     .saturation = 1.0f,
-    .baseBrightness = 0.8f
+    .baseBrightness = 0.8f,
+    .prePara = "ClassicMatrix"
 };
 
 const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
@@ -26,7 +27,8 @@ const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
     .baseHue = 0.0f, // 红色 "glitch"
     .hueVariation = 0.02f,
     .saturation = 1.0f,
-    .baseBrightness = 1.0f
+    .baseBrightness = 1.0f,
+    .prePara = "FastGlitch"
 };
 
 
@@ -79,7 +81,38 @@ void CodeRainEffect::setParameters(const char* jsonParams) {
     _params.saturation = doc["saturation"] | _params.saturation;
     _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
     
+    // 如果JSON中包含prePara字段，则更新它
+    if (doc["prePara"].is<String>()) {
+        const char* newPrePara = doc["prePara"].as<String>().c_str();
+        if (strcmp(newPrePara, "ClassicMatrix") == 0) {
+            _params.prePara = ClassicMatrixPreset.prePara;
+        } else if (strcmp(newPrePara, "FastGlitch") == 0) {
+            _params.prePara = FastGlitchPreset.prePara;
+        }
+    }
+    
     Serial.println("CodeRainEffect parameters updated via JSON.");
+}
+
+void CodeRainEffect::setPreset(const char* presetName) {
+    if (strcmp(presetName, "next") == 0) {
+        // 使用prePara字段来判断当前预设
+        if (strcmp(_params.prePara, "ClassicMatrix") == 0) {
+            setParameters(FastGlitchPreset);
+            Serial.println("Switched to FastGlitchPreset");
+        } else {
+            setParameters(ClassicMatrixPreset);
+            Serial.println("Switched to ClassicMatrixPreset");
+        }
+    } else if (strcmp(presetName, "ClassicMatrix") == 0) {
+        setParameters(ClassicMatrixPreset);
+        Serial.println("Switched to ClassicMatrixPreset");
+    } else if (strcmp(presetName, "FastGlitch") == 0) {
+        setParameters(FastGlitchPreset);
+        Serial.println("Switched to FastGlitchPreset");
+    } else {
+        Serial.println("Unknown preset name: " + String(presetName));
+    }
 }
 
 void CodeRainEffect::Update() {

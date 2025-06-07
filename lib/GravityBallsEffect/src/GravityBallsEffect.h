@@ -22,6 +22,7 @@ public:
         float maxBrightnessScale;
         float colorCyclePeriodS;
         float ballColorSaturation;
+        const char* prePara;
     };
 
     static const Parameters BouncyPreset;
@@ -61,6 +62,7 @@ public:
     // --- 重载的 setParameters 方法 ---
     void setParameters(const Parameters& params); // 接受结构体
     void setParameters(const char* jsonParams);   // 接受JSON字符串
+    void setPreset(const char* presetName);
 
 private:
     struct Ball {
