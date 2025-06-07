@@ -1,0 +1,16 @@
+{
+    "name": "CodeRainEffect",
+    "version": "1.0.0",
+    "description": "A 'Matrix' style code rain effect for NeoPixelBus strips.",
+    "keywords": "led, neopixel, effect, animation, matrix, rain",
+    "authors": [
+        {
+            "name": "AI Assistant & User"
+        }
+    ],
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": {
+        "makuna/NeoPixelBus": "^2.8.4"
+    }
+}
