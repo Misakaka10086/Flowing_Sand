@@ -51,7 +51,7 @@ void RippleEffect::setParameters(const Parameters& params) {
 }
 
 void RippleEffect::setParameters(const char* jsonParams) {
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
         Serial.println("RippleEffect::setParameters failed to parse JSON: " + String(error.c_str()));

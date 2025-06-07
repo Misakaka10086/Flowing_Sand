@@ -61,7 +61,7 @@ void CodeRainEffect::setParameters(const Parameters& params) {
 }
 
 void CodeRainEffect::setParameters(const char* jsonParams) {
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
         Serial.println("CodeRainEffect::setParameters failed to parse JSON: " + String(error.c_str()));

@@ -13,7 +13,7 @@ void EffectController::Update() {
 }
 
 void EffectController::processCommand(const char* jsonCommand) {
-    DynamicJsonDocument doc(512);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonCommand);
 
     if (error) {
@@ -35,7 +35,7 @@ void EffectController::processCommand(const char* jsonCommand) {
     }
 
     // 如果 `params` 字段存在，就将其传递给当前的效果类
-    if (doc.containsKey("params")) {
+    if (doc["params"].is<JsonObject>()) {
         JsonObject paramsObj = doc["params"].as<JsonObject>();
         // 将 params JSON 对象序列化回字符串，然后传递
         String paramsStr;

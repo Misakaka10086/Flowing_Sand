@@ -45,7 +45,7 @@ void ZenLightsEffect::setParameters(const Parameters& params) {
 }
 
 void ZenLightsEffect::setParameters(const char* jsonParams) {
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
         Serial.println("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));

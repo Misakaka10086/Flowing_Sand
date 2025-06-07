@@ -56,7 +56,7 @@ void GravityBallsEffect::setParameters(const Parameters &params)
 
 // ***** 新增的重载 setParameters(json) 方法 *****
 void GravityBallsEffect::setParameters(const char* jsonParams) {
-    DynamicJsonDocument doc(256); // 为参数分配一个合理的JSON文档大小
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
 
     if (error) {
@@ -79,7 +79,7 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
     _params.ballColorSaturation = doc["ballColorSaturation"] | _params.ballColorSaturation;
 
     // 对于小球数量的改变，需要特别处理，因为它涉及到内存重新分配
-    if (doc.containsKey("numBalls")) {
+    if (doc["numBalls"].is<uint8_t>()) {
         // 先将JSON中的值转换为期望的类型，再进行比较
         uint8_t newNumBalls = doc["numBalls"].as<uint8_t>();
         
