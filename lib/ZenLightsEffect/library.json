@@ -1,0 +1,16 @@
+{
+    "name": "ZenLightsEffect",
+    "version": "1.0.0",
+    "description": "A Zen-like 'breathing' lights effect for NeoPixelBus strips.",
+    "keywords": "led, neopixel, effect, animation",
+    "authors": [
+        {
+            "name": "AI Assistant & User"
+        }
+    ],
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": {
+        "makuna/NeoPixelBus": "^2.7.0"
+    }
+}
