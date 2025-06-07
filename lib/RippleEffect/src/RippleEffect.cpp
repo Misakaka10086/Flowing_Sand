@@ -158,19 +158,27 @@ void RippleEffect::Update() {
                 if (_ripples[r_idx].isActive) {
                     unsigned long rippleStartTime = _ripples[r_idx].startTimeMs;
                     float elapsedTimeS = (float)(currentTimeMs - rippleStartTime) / 1000.0f;
-                    float currentRadius = elapsedTimeS * _params.speed;
+
+                    // 关键修改：初始半径从 -thickness/2 开始
+                    float currentRadius = elapsedTimeS * _params.speed - _params.thickness / 2.0f;
 
                     if (currentRadius > _params.maxRadius + _params.thickness / 2.0f) {
                         _ripples[r_idx].isActive = false;
                         continue;
                     }
 
-                    float distToOrigin = sqrt(pow(pixelCenterX - _ripples[r_idx].originX, 2) + pow(pixelCenterY - _ripples[r_idx].originY, 2));
+                    // 当前像素到涟漪中心的距离
+                    float distToOrigin = sqrt(
+                        pow(pixelCenterX - _ripples[r_idx].originX, 2) +
+                        pow(pixelCenterY - _ripples[r_idx].originY, 2)
+                    );
+
                     float distToRippleEdge = abs(distToOrigin - currentRadius);
 
                     if (distToRippleEdge < _params.thickness / 2.0f) {
                         float intensityFactor = cos((distToRippleEdge / (_params.thickness / 2.0f)) * (PI / 2.0f));
                         intensityFactor = constrain(intensityFactor, 0.0f, 1.0f);
+
                         if (intensityFactor > maxIntensityForThisPixel) {
                             maxIntensityForThisPixel = intensityFactor;
                             float finalBrightness = maxIntensityForThisPixel * _params.baseBrightness;
