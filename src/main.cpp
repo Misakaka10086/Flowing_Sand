@@ -3,6 +3,7 @@
 // 包含两个效果库
 #include <ZenLightsEffect.h> 
 #include <GravityBallsEffect.h>
+#include <CodeRainEffect.h>
 
 // WS2812 灯珠引脚定义
 const int LED_PIN = 11;
@@ -16,7 +17,7 @@ const int NUM_LEDS = MATRIX_WIDTH * MATRIX_HEIGHT;
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 ZenLightsEffect zenEffect; // 创建禅意效果实例
 GravityBallsEffect gravityEffect; // 创建重力球效果实例
-
+CodeRainEffect codeRain; // 创建代码雨效果实例
 // ---- (可选) 如果想同时运行或切换效果 ----
 // ZenLightsEffect zenEffect;
 // int currentEffect = 0; // 0 for gravity, 1 for zen
@@ -56,15 +57,23 @@ void setup() {
     gravityEffect.setDampingFactor(0.92f);
     gravityEffect.setRestitution(0.6f);
     // 其他参数使用默认值...
+
+    // 初始化代码雨效果
+    codeRain.Begin(strip);
     
+    // --- (可选) 使用公共接口配置效果参数 ---
+    codeRain.setSpeedRange(8.0f, 24.0f);
+    codeRain.setBaseBrightness(220); // 让绿色更亮一些
+    codeRain.setSpawnProbability(0.2f); // 稍微增加生成概率
+
     randomSeed(analogRead(A0));
 }
 
 void loop() {
 
-    zenEffect.Update();
+    //zenEffect.Update();
     //gravityEffect.Update();
-
+    codeRain.Update();
     // 显示更新
     strip.Show();
 
