@@ -1,0 +1,16 @@
+{
+    "name": "RippleEffect",
+    "version": "1.0.0",
+    "description": "An auto-triggering, colorful ripple effect for NeoPixelBus strips.",
+    "keywords": "led, neopixel, effect, animation, ripple, wave",
+    "authors": [
+        {
+            "name": "AI Assistant & User"
+        }
+    ],
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": {
+        "makuna/NeoPixelBus": "^2.8.4"
+    }
+}

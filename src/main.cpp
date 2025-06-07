@@ -4,6 +4,7 @@
 #include <ZenLightsEffect.h> 
 #include <GravityBallsEffect.h>
 #include <CodeRainEffect.h>
+#include <RippleEffect.h> // <--- 包含新库
 
 // WS2812 灯珠引脚定义
 const int LED_PIN = 11;
@@ -21,6 +22,7 @@ CodeRainEffect codeRain; // 创建代码雨效果实例
 // ---- (可选) 如果想同时运行或切换效果 ----
 // ZenLightsEffect zenEffect;
 // int currentEffect = 0; // 0 for gravity, 1 for zen
+RippleEffect rippleEffect; // 创建波纹效果实例
 
 void setup() {
     Serial.begin(115200);
@@ -66,6 +68,15 @@ void setup() {
     codeRain.setBaseBrightness(220); // 让绿色更亮一些
     codeRain.setSpawnProbability(0.2f); // 稍微增加生成概率
 
+    // 初始化波纹效果
+    rippleEffect.Begin(strip);
+    
+    // --- (可选) 使用公共接口配置效果参数 ---
+    rippleEffect.setSpeed(4.0f);         // 波纹快一点
+    rippleEffect.setThickness(1.5f);     // 波纹细一点
+    rippleEffect.setSpawnInterval(1.5f); // 每1.5秒一个
+    rippleEffect.setRandomOrigin(true);  // 起始点随机偏移
+    rippleEffect.setBrightness(0.1f);
     randomSeed(analogRead(A0));
 }
 
@@ -73,7 +84,8 @@ void loop() {
 
     //zenEffect.Update();
     //gravityEffect.Update();
-    codeRain.Update();
+    //codeRain.Update();
+    rippleEffect.Update();
     // 显示更新
     strip.Show();
 
