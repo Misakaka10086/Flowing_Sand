@@ -7,6 +7,20 @@
 class RippleEffect
 {
 public:
+    struct Parameters {
+        uint8_t maxRipples;
+        float speed;
+        float thickness;
+        float spawnIntervalS;
+        float maxRadius;
+        bool randomOrigin;
+        float saturation;
+        float brightness; // 0.0 to 1.0
+    };
+
+    static const Parameters WaterDropPreset;
+    static const Parameters EnergyPulsePreset;
+
     RippleEffect();
     ~RippleEffect();
 
@@ -15,35 +29,20 @@ public:
     {
         _strip = &strip;
         _numLeds = strip.PixelCount();
-        _matrixWidth = 8; // Assuming 8x8
+        _matrixWidth = 8;
         _matrixHeight = 8;
 
-        if (_ripples != nullptr) {
-            delete[] _ripples;
-        }
-        _ripples = new Ripple[_maxRipples];
+        // Apply initial parameters
+        setParameters(_params);
 
-        for (uint8_t i = 0; i < _maxRipples; ++i) {
-            _ripples[i].isActive = false;
-        }
         _lastAutoRippleTimeMs = millis();
     }
 
     void Update();
-
-    // --- 公共配置接口 ---
-    void setMaxRipples(uint8_t count);
-    void setSpeed(float speed);
-    void setThickness(float thickness);
-    void setSpawnInterval(float seconds);
-    void setMaxRadius(float radius);
-    void setRandomOrigin(bool random); 
-    void setSaturation(float saturation);
-    void setBrightness(float brightness); // ***** 新增接口 ***** (0.0 to 1.0)
+    void setParameters(const Parameters& params);
 
 private:
-    struct Ripple
-    {
+    struct Ripple {
         bool isActive;
         float originX, originY;
         unsigned long startTimeMs;
@@ -59,15 +58,7 @@ private:
     uint8_t _nextRippleIndex = 0;
     unsigned long _lastAutoRippleTimeMs = 0;
 
-    // 私有配置参数
-    uint8_t _maxRipples = 5;
-    float _speed = 3.0f;
-    float _maxRadius; 
-    float _thickness = 1.8f;
-    float _spawnIntervalS = 2.0f;
-    float _saturation = 1.0f;
-    bool _randomOrigin = false;
-    float _brightness = 1.0f; // ***** 新增亮度控制变量 ***** (默认100%)
+    Parameters _params;
 };
 
 #endif // RIPPLE_EFFECT_H

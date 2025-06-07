@@ -1,14 +1,52 @@
 #include "RippleEffect.h"
 
+// 定义和初始化静态预设
+const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
+    .maxRipples = 5,
+    .speed = 3.0f,
+    .thickness = 1.8f,
+    .spawnIntervalS = 2.0f,
+    .maxRadius = 8 * 1.2f,
+    .randomOrigin = false, // 中心水滴
+    .saturation = 1.0f,
+    .brightness = 0.8f
+};
+
+const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
+    .maxRipples = 8,
+    .speed = 6.0f, // 更快
+    .thickness = 1.2f, // 更细
+    .spawnIntervalS = 0.5f, // 更频繁
+    .maxRadius = 8 * 1.5f,
+    .randomOrigin = true, // 随机脉冲
+    .saturation = 0.7f,
+    .brightness = 0.2f
+};
+
 RippleEffect::RippleEffect() {
     _ripples = nullptr;
     _strip = nullptr;
-    _maxRadius = 8 * 1.2f; 
+    setParameters(WaterDropPreset); // 构造时加载默认预设
 }
 
 RippleEffect::~RippleEffect() {
     if (_ripples != nullptr) {
         delete[] _ripples;
+    }
+}
+
+void RippleEffect::setParameters(const Parameters& params) {
+    bool numRipplesChanged = (_params.maxRipples != params.maxRipples);
+    _params = params;
+
+    // 如果最大波纹数改变，需要重新分配内存
+    if (numRipplesChanged || _ripples == nullptr) {
+        if (_ripples != nullptr) delete[] _ripples;
+        _ripples = new Ripple[_params.maxRipples];
+        for (uint8_t i = 0; i < _params.maxRipples; ++i) {
+            _ripples[i].isActive = false;
+        }
+        _nextRippleIndex = 0;
     }
 }
 
@@ -18,15 +56,15 @@ void RippleEffect::Update() {
     unsigned long currentTimeMs = millis();
 
     // Auto-create ripples
-    if (currentTimeMs - _lastAutoRippleTimeMs >= (unsigned long)(_spawnIntervalS * 1000.0f)) {
+    if (currentTimeMs - _lastAutoRippleTimeMs >= (unsigned long)(_params.spawnIntervalS * 1000.0f)) {
         _lastAutoRippleTimeMs = currentTimeMs;
 
         float originX = _matrixWidth / 2.0f;
         float originY = _matrixHeight / 2.0f;
 
-        if (_randomOrigin) {
-            originX += random(-100, 101) / 100.0f;
-            originY += random(-100, 101) / 100.0f;
+        if (_params.randomOrigin) {
+            originX += random(-150, 151) / 100.0f;
+            originY += random(-150, 151) / 100.0f;
             originX = constrain(originX, 0.5f, _matrixWidth - 0.5f);
             originY = constrain(originY, 0.5f, _matrixHeight - 0.5f);
         }
@@ -38,7 +76,7 @@ void RippleEffect::Update() {
         _ripples[_nextRippleIndex].originY = originY;
         _ripples[_nextRippleIndex].startTimeMs = currentTimeMs;
         _ripples[_nextRippleIndex].hue = randomHue;
-        _nextRippleIndex = (_nextRippleIndex + 1) % _maxRipples;
+        _nextRippleIndex = (_nextRippleIndex + 1) % _params.maxRipples;
     }
 
     // Render LED matrix
@@ -51,13 +89,13 @@ void RippleEffect::Update() {
             float maxIntensityForThisPixel = 0.0f;
             HsbColor colorForThisPixel(0, 0, 0);
 
-            for (int r_idx = 0; r_idx < _maxRipples; ++r_idx) {
+            for (int r_idx = 0; r_idx < _params.maxRipples; ++r_idx) {
                 if (_ripples[r_idx].isActive) {
                     unsigned long rippleStartTime = _ripples[r_idx].startTimeMs;
                     float elapsedTimeS = (float)(currentTimeMs - rippleStartTime) / 1000.0f;
-                    float currentRadius = elapsedTimeS * _speed;
+                    float currentRadius = elapsedTimeS * _params.speed;
 
-                    if (currentRadius > _maxRadius + _thickness / 2.0f) {
+                    if (currentRadius > _params.maxRadius + _params.thickness / 2.0f) {
                         _ripples[r_idx].isActive = false;
                         continue;
                     }
@@ -65,16 +103,13 @@ void RippleEffect::Update() {
                     float distToOrigin = sqrt(pow(pixelCenterX - _ripples[r_idx].originX, 2) + pow(pixelCenterY - _ripples[r_idx].originY, 2));
                     float distToRippleEdge = abs(distToOrigin - currentRadius);
 
-                    if (distToRippleEdge < _thickness / 2.0f) {
-                        float intensityFactor = cos((distToRippleEdge / (_thickness / 2.0f)) * (PI / 2.0f));
+                    if (distToRippleEdge < _params.thickness / 2.0f) {
+                        float intensityFactor = cos((distToRippleEdge / (_params.thickness / 2.0f)) * (PI / 2.0f));
                         intensityFactor = constrain(intensityFactor, 0.0f, 1.0f);
                         if (intensityFactor > maxIntensityForThisPixel) {
                             maxIntensityForThisPixel = intensityFactor;
-                            
-                            // ***** 应用全局亮度乘数 *****
-                            float finalBrightness = maxIntensityForThisPixel * _brightness;
-                            
-                            colorForThisPixel = HsbColor(_ripples[r_idx].hue, _saturation, finalBrightness);
+                            float finalBrightness = maxIntensityForThisPixel * _params.brightness;
+                            colorForThisPixel = HsbColor(_ripples[r_idx].hue, _params.saturation, finalBrightness);
                         }
                     }
                 }
@@ -88,26 +123,4 @@ void RippleEffect::Update() {
             }
         }
     }
-}
-
-// --- 公共配置接口实现 ---
-
-void RippleEffect::setMaxRipples(uint8_t count) {
-    if (count == _maxRipples) return;
-    _maxRipples = count;
-    if (_ripples != nullptr) delete[] _ripples;
-    _ripples = new Ripple[_maxRipples];
-    for (uint8_t i = 0; i < _maxRipples; ++i) {
-        _ripples[i].isActive = false;
-    }
-    _nextRippleIndex = 0;
-}
-void RippleEffect::setSpeed(float speed) { _speed = speed; }
-void RippleEffect::setThickness(float thickness) { _thickness = thickness; }
-void RippleEffect::setSpawnInterval(float seconds) { _spawnIntervalS = seconds; }
-void RippleEffect::setMaxRadius(float radius) { _maxRadius = radius; }
-void RippleEffect::setRandomOrigin(bool random) { _randomOrigin = random; }
-void RippleEffect::setSaturation(float saturation) { _saturation = constrain(saturation, 0.0f, 1.0f); }
-void RippleEffect::setBrightness(float brightness) { // ***** 新增接口的实现 *****
-    _brightness = constrain(brightness, 0.0f, 1.0f);
 }

@@ -1,13 +1,62 @@
 #include "CodeRainEffect.h"
 
+// 定义和初始化静态预设
+const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
+    .minSpeed = 12.0f,
+    .maxSpeed = 20.0f,
+    .minStreamLength = 3,
+    .maxStreamLength = 7,
+    .spawnProbability = 0.15f,
+    .minSpawnCooldownMs = 100,
+    .maxSpawnCooldownMs = 400,
+    .baseHue = 0.33f, // Green
+    .hueVariation = 0.05f,
+    .saturation = 1.0f,
+    .baseBrightness = 220
+};
+
+const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
+    .minSpeed = 25.0f,
+    .maxSpeed = 50.0f, // 非常快
+    .minStreamLength = 2,
+    .maxStreamLength = 5, // 流更短
+    .spawnProbability = 0.3f, // 更密集
+    .minSpawnCooldownMs = 20,
+    .maxSpawnCooldownMs = 100,
+    .baseHue = 0.0f, // 红色 "glitch"
+    .hueVariation = 0.02f,
+    .saturation = 1.0f,
+    .baseBrightness = 255
+};
+
+
 CodeRainEffect::CodeRainEffect() {
     _codeStreams = nullptr;
     _strip = nullptr;
+    setParameters(ClassicMatrixPreset); // 构造时加载默认预设
 }
 
 CodeRainEffect::~CodeRainEffect() {
     if (_codeStreams != nullptr) {
         delete[] _codeStreams;
+    }
+}
+
+void CodeRainEffect::setParameters(const Parameters& params) {
+    _params = params;
+    // CodeRainEffect 的流数量总是等于矩阵宽度，所以不需要重新分配
+    if (_codeStreams == nullptr && _matrixWidth > 0) {
+        _codeStreams = new CodeStream[_matrixWidth];
+        for (uint8_t i = 0; i < _matrixWidth; ++i) {
+            _codeStreams[i].isActive = false;
+            // 初始化冷却时间，确保第一次能生成
+            _codeStreams[i].lastActivityTimeMs = millis() - random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+            _codeStreams[i].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+        }
+    } else if (_codeStreams != nullptr) { // If params are changed at runtime
+        for (uint8_t i = 0; i < _matrixWidth; ++i) { // Reset cooldowns based on new params
+            _codeStreams[i].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+        }
     }
 }
 
@@ -23,23 +72,23 @@ void CodeRainEffect::Update() {
 
     _strip->ClearTo(RgbColor(0, 0, 0));
 
-    // Update and generate streams
+    // Update and generate streams using _params
     for (int x = 0; x < _matrixWidth; ++x) {
         if (_codeStreams[x].isActive) {
             _codeStreams[x].currentY += _codeStreams[x].speed * deltaTimeS;
             if (_codeStreams[x].currentY - _codeStreams[x].length >= _matrixHeight) {
                 _codeStreams[x].isActive = false;
                 _codeStreams[x].lastActivityTimeMs = currentTimeMs;
-                _codeStreams[x].spawnCooldownMs = random(_minSpawnCooldownMs, _maxSpawnCooldownMs);
+                _codeStreams[x].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
             }
         } else {
             if (currentTimeMs - _codeStreams[x].lastActivityTimeMs >= _codeStreams[x].spawnCooldownMs) {
-                if (random(1000) / 1000.0f < _spawnProbability) {
+                if (random(1000) / 1000.0f < _params.spawnProbability) {
                     _codeStreams[x].isActive = true;
                     _codeStreams[x].currentY = -random(0, _matrixHeight * 2);
-                    _codeStreams[x].speed = random(_minSpeed * 100, _maxSpeed * 100) / 100.0f;
-                    _codeStreams[x].length = random(_minStreamLength, _maxStreamLength + 1);
-                    _codeStreams[x].hue = _baseHue + (random(-_hueVariation * 100, _hueVariation * 100) / 100.0f);
+                    _codeStreams[x].speed = random(_params.minSpeed * 100, _params.maxSpeed * 100) / 100.0f;
+                    _codeStreams[x].length = random(_params.minStreamLength, _params.maxStreamLength + 1);
+                    _codeStreams[x].hue = _params.baseHue + (random(-_params.hueVariation * 100, _params.hueVariation * 100) / 100.0f);
                     if (_codeStreams[x].hue < 0.0f) _codeStreams[x].hue += 1.0f;
                     if (_codeStreams[x].hue > 1.0f) _codeStreams[x].hue -= 1.0f;
                     _codeStreams[x].lastActivityTimeMs = currentTimeMs;
@@ -65,7 +114,7 @@ void CodeRainEffect::Update() {
                         brightnessFactor *= (random(70, 101) / 100.0f);
                     }
                     
-                    HsbColor hsbColor(_codeStreams[x].hue, _saturation, brightnessFactor * (_baseBrightness / 255.0f));
+                    HsbColor hsbColor(_codeStreams[x].hue, _params.saturation, brightnessFactor * (_params.baseBrightness / 255.0f));
                     int logicalDrawY = _matrixHeight - 1 - charY;
                     int ledIndex = logicalDrawY * _matrixWidth + (_matrixWidth - 1 - x);
 
@@ -77,17 +126,3 @@ void CodeRainEffect::Update() {
         }
     }
 }
-
-// --- 公共配置接口实现 ---
-
-void CodeRainEffect::setSpeedRange(float min, float max) { _minSpeed = min; _maxSpeed = max; }
-void CodeRainEffect::setLengthRange(int min, int max) { 
-    _minStreamLength = constrain(min, 1, _matrixHeight);
-    _maxStreamLength = constrain(max, min, _matrixHeight);
-}
-void CodeRainEffect::setSpawnProbability(float probability) { _spawnProbability = constrain(probability, 0.0f, 1.0f); }
-void CodeRainEffect::setSpawnCooldownRange(unsigned long minMs, unsigned long maxMs) { _minSpawnCooldownMs = minMs; _maxSpawnCooldownMs = maxMs; }
-void CodeRainEffect::setBaseHue(float hue) { _baseHue = hue; }
-void CodeRainEffect::setHueVariation(float variation) { _hueVariation = variation; }
-void CodeRainEffect::setSaturation(float saturation) { _saturation = constrain(saturation, 0.0f, 1.0f); }
-void CodeRainEffect::setBaseBrightness(uint8_t brightness) { _baseBrightness = brightness; }

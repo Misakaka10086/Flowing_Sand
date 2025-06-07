@@ -7,45 +7,55 @@
 class ZenLightsEffect
 {
 public:
-    // 构造函数
+    // ***** 1. 定义公共的参数结构体 *****
+    struct Parameters {
+        int maxActiveLeds;
+        unsigned long minDurationMs;
+        unsigned long maxDurationMs;
+        float minPeakBrightness; // 0.0 - 1.0
+        float maxPeakBrightness; // 0.0 - 1.0
+        float hueMin;            // 0.0 - 1.0
+        float hueMax;            // 0.0 - 1.0
+        float saturation;        // 0.0 - 1.0
+        unsigned long spawnIntervalMs;
+    };
+
+    // ***** 2. 声明静态的预设 *****
+    static const Parameters ZenPreset;      // 预设1: 宁静的蓝绿色
+    static const Parameters FireflyPreset;  // 预设2: 温暖的萤火虫
+
+    // 构造函数和析构函数
     ZenLightsEffect();
-    // 析构函数，用于释放动态分配的内存
     ~ZenLightsEffect();
 
-    // 初始化方法，传入NeoPixelBus对象
+    // 初始化方法
     template<typename T_NeoPixelBus>
     void Begin(T_NeoPixelBus& strip)
     {
+        // ... (Begin 方法保持不变) ...
         _strip = &strip;
         _numLeds = strip.PixelCount();
-
-        // 如果之前已分配内存，先释放
         if (_ledStates != nullptr) {
             delete[] _ledStates;
         }
-        // 为LED状态动态分配内存
         _ledStates = new LedEffectState[_numLeds];
-
-        // 初始化所有LED状态
         for (uint16_t i = 0; i < _numLeds; i++) {
             _ledStates[i].isActive = false;
         }
         _lastAttemptTimeMs = millis();
     }
 
-    // 主更新函数，在Arduino的loop()中调用
+    // 主更新函数
     void Update();
 
-    // --- 公共配置接口 ---
-    void setMaxActiveLeds(int count);
-    void setDurationRange(unsigned long minMs, unsigned long maxMs);
-    void setBrightnessRange(float min, float max); // 0.0 - 1.0
-    void setHueRange(float min, float max);      // 0.0 - 1.0
-    void setSaturation(float saturation);        // 0.0 - 1.0
-    void setSpawnInterval(unsigned long intervalMs);
+    // --- 新的公共配置接口 ---
+    void setParameters(const Parameters& params);
+
+    // (可选) 保留旧的单个设置接口，或者移除它们以强制使用参数结构体
+    // void setMaxActiveLeds(int count);
+    // ...
 
 private:
-    // 私有状态结构体
     struct LedEffectState {
         bool isActive;
         unsigned long startTimeMs;
@@ -54,22 +64,13 @@ private:
         float hue;                  
     };
 
-    // 私有成员变量
     NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* _strip = nullptr;
     uint16_t _numLeds = 0;
     LedEffectState* _ledStates = nullptr;
     unsigned long _lastAttemptTimeMs = 0;
 
-    // 私有配置参数 (带默认值)
-    int _maxActiveLeds = 8;
-    unsigned long _minDurationMs = 10000;
-    unsigned long _maxDurationMs = 20000;
-    float _minPeakBrightness = 0.05f;
-    float _maxPeakBrightness = 0.1f;
-    float _hueMin = 0.29f;
-    float _hueMax = 0.41f;
-    float _saturation = 0.9f;
-    unsigned long _spawnIntervalMs = 300;
+    // 私有成员变量现在用来存储当前激活的参数
+    Parameters _params; // 用一个参数对象来存储所有配置
 
     // 私有辅助函数
     int countActiveLeds();
