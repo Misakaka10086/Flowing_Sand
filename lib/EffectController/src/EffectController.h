@@ -7,13 +7,16 @@
 #include "CodeRainEffect.h"
 #include "RippleEffect.h"
 #include "ScrollingTextEffect.h"
+#include "LavaLampEffect.h"
+
 // 使用枚举来表示效果，更安全
 enum class EffectType {
     GRAVITY_BALLS,
     ZEN_LIGHTS,
     CODE_RAIN,
     RIPPLE,
-    SCROLLING_TEXT
+    SCROLLING_TEXT,
+    LAVA_LAMP
 };
 
 class EffectController
@@ -30,6 +33,7 @@ public:
         codeRainEffect.Begin(strip);
         rippleEffect.Begin(strip);
         scrollingTextEffect.Begin(strip);
+        lavaLampEffect.Begin(strip);
     }
     
     // 主更新循环
@@ -46,7 +50,8 @@ private:
     CodeRainEffect codeRainEffect;
     RippleEffect rippleEffect;
     ScrollingTextEffect scrollingTextEffect;
-
+    LavaLampEffect lavaLampEffect;
+    
     EffectType _currentEffect = EffectType::GRAVITY_BALLS; // 默认效果
 };
 

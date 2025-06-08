@@ -10,6 +10,7 @@ void EffectController::Update() {
         case EffectType::CODE_RAIN:     codeRainEffect.Update(); break;
         case EffectType::RIPPLE:        rippleEffect.Update();   break;
         case EffectType::SCROLLING_TEXT: scrollingTextEffect.Update(); break;
+        case EffectType::LAVA_LAMP:     lavaLampEffect.Update(); break;
     }
 }
 
@@ -33,6 +34,7 @@ void EffectController::processCommand(const char* jsonCommand) {
         else if (strcmp(effectName, "code_rain") == 0) _currentEffect = EffectType::CODE_RAIN;
         else if (strcmp(effectName, "ripple") == 0) _currentEffect = EffectType::RIPPLE;
         else if (strcmp(effectName, "scrolling_text") == 0) _currentEffect = EffectType::SCROLLING_TEXT;
+        else if (strcmp(effectName, "lava_lamp") == 0) _currentEffect = EffectType::LAVA_LAMP;
         Serial.printf("Switched to effect: %s\n", effectName);
     }
 
@@ -54,6 +56,8 @@ void EffectController::processCommand(const char* jsonCommand) {
                 break;
             case EffectType::SCROLLING_TEXT:
                 scrollingTextEffect.setPreset(presetName);
+            case EffectType::LAVA_LAMP:
+                lavaLampEffect.setPreset(presetName);
                 break;
             // 其他效果的预设切换可以在这里添加
             default:
@@ -86,6 +90,8 @@ void EffectController::processCommand(const char* jsonCommand) {
                 break;
             case EffectType::SCROLLING_TEXT:
                 scrollingTextEffect.setParameters(paramsStr.c_str());
+            case EffectType::LAVA_LAMP:
+                lavaLampEffect.setParameters(paramsStr.c_str());
                 break;
         }
     }
