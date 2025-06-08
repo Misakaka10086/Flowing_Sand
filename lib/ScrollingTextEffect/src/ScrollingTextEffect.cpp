@@ -1,0 +1,256 @@
+#include "ScrollingTextEffect.h"
+#include "font8x8_basic.h" // Includes the actual font data array
+
+// Define static presets
+const ScrollingTextEffect::Parameters ScrollingTextEffect::DefaultPreset = {
+    .text = "Hello,world",
+    .direction = SCROLL_LEFT,
+    .hue = 0.33f, // Green
+    .saturation = 1.0f,
+    .brightness = 0.5f,
+    .scrollIntervalMs = 150,
+    .charSpacing = 1,
+    .prePara = "Default"
+};
+
+const ScrollingTextEffect::Parameters ScrollingTextEffect::FastBlueLeftPreset = {
+    .text = "ESP32 MQTT",
+    .direction = SCROLL_LEFT,
+    .hue = 0.66f, // Blue
+    .saturation = 1.0f,
+    .brightness = 0.8f,
+    .scrollIntervalMs = 70,
+    .charSpacing = 1,
+    .prePara = "FastBlue"
+};
+
+
+ScrollingTextEffect::ScrollingTextEffect() {
+    _strip = nullptr; // Ensure it's null initially
+    setParameters(DefaultPreset); // Load default preset
+}
+
+ScrollingTextEffect::~ScrollingTextEffect() {
+    // Nothing to do for now
+}
+
+void ScrollingTextEffect::setParameters(const Parameters& params) {
+    bool textChanged = (_params.text != params.text);
+    bool directionChanged = (_params.direction != params.direction);
+    bool charSpacingChanged = (_params.charSpacing != params.charSpacing);
+
+    _params = params;
+
+    if (textChanged || directionChanged || charSpacingChanged || _actualTextPixelWidth == 0) {
+        resetScrollState();
+    }
+}
+
+void ScrollingTextEffect::setParameters(const char* jsonParams) {
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, jsonParams);
+
+    if (error) {
+        Serial.print(F("ScrollingTextEffect::setParameters failed to parse JSON: "));
+        Serial.println(error.c_str());
+        return;
+    }
+
+    Parameters newParams = _params; // Start with current params
+
+    if (doc.containsKey("text")) newParams.text = doc["text"].as<String>();
+    
+    if (doc.containsKey("direction")) {
+        String dirStr = doc["direction"].as<String>();
+        if (dirStr.equalsIgnoreCase("left")) newParams.direction = SCROLL_LEFT;
+        else if (dirStr.equalsIgnoreCase("right")) newParams.direction = SCROLL_RIGHT;
+        else if (dirStr.equalsIgnoreCase("up")) newParams.direction = SCROLL_UP;
+        else if (dirStr.equalsIgnoreCase("down")) newParams.direction = SCROLL_DOWN;
+    }
+
+    if (doc.containsKey("hue")) newParams.hue = doc["hue"].as<float>();
+    if (doc.containsKey("saturation")) newParams.saturation = doc["saturation"].as<float>();
+    if (doc.containsKey("brightness")) newParams.brightness = doc["brightness"].as<float>();
+    if (doc.containsKey("scrollIntervalMs")) newParams.scrollIntervalMs = doc["scrollIntervalMs"].as<unsigned long>();
+    if (doc.containsKey("charSpacing")) newParams.charSpacing = doc["charSpacing"].as<uint8_t>();
+    
+    if (doc["prePara"].is<String>()) {
+         const char* presetStr = doc["prePara"].as<const char*>();
+         if (strcmp(presetStr, DefaultPreset.prePara) == 0) newParams.prePara = DefaultPreset.prePara;
+         else if (strcmp(presetStr, FastBlueLeftPreset.prePara) == 0) newParams.prePara = FastBlueLeftPreset.prePara;
+         // else keep current or set to custom
+    }
+
+    setParameters(newParams); // Apply and reset scroll if needed
+    Serial.println("ScrollingTextEffect parameters updated via JSON.");
+}
+
+void ScrollingTextEffect::setPreset(const char* presetName) {
+    if (strcmp(presetName, "next") == 0) {
+        if (strcmp(_params.prePara, DefaultPreset.prePara) == 0) {
+            setParameters(FastBlueLeftPreset);
+        } else {
+            setParameters(DefaultPreset);
+        }
+    } else if (strcmp(presetName, DefaultPreset.prePara) == 0) {
+        setParameters(DefaultPreset);
+    } else if (strcmp(presetName, FastBlueLeftPreset.prePara) == 0) {
+        setParameters(FastBlueLeftPreset);
+    } else {
+        Serial.println("ScrollingTextEffect: Unknown preset name: " + String(presetName));
+    }
+     Serial.println("ScrollingTextEffect: Switched to preset: " + String(_params.prePara));
+}
+
+
+void ScrollingTextEffect::resetScrollState() {
+    if (_params.text.isEmpty() || _matrixWidth == 0 || _matrixHeight == 0) {
+        _actualTextPixelWidth = 0;
+        _scrollPositionX = 0;
+        _scrollPositionY = 0;
+        return;
+    }
+
+    // Calculate total width of the text string in pixels
+    _actualTextPixelWidth = 0;
+    if (_params.text.length() > 0) {
+        _actualTextPixelWidth = _params.text.length() * CHAR_DISPLAY_WIDTH;
+        if (_params.text.length() > 1) {
+            _actualTextPixelWidth += (_params.text.length() - 1) * _params.charSpacing;
+        }
+    }
+    
+    // Initialize scroll position based on direction for smooth entry
+    switch (_params.direction) {
+        case SCROLL_LEFT:
+            _scrollPositionX = _matrixWidth; // Start off-screen to the right
+            _scrollPositionY = 0;
+            break;
+        case SCROLL_RIGHT:
+            _scrollPositionX = -_actualTextPixelWidth; // Start off-screen to the left
+            _scrollPositionY = 0;
+            break;
+        case SCROLL_UP:
+            _scrollPositionX = 0;
+            _scrollPositionY = _matrixHeight; // Start off-screen to the bottom
+            break;
+        case SCROLL_DOWN:
+            _scrollPositionX = 0;
+            _scrollPositionY = -CHAR_DISPLAY_HEIGHT; // Start off-screen to the top
+            break;
+    }
+    _lastScrollTimeMs = millis(); // Reset timer
+}
+
+bool ScrollingTextEffect::getCharPixel(char c, uint8_t char_x, uint8_t char_y) {
+    if (char_x >= CHAR_DISPLAY_WIDTH || char_y >= CHAR_DISPLAY_HEIGHT) {
+        return false; // Out of 5x7 bounds
+    }
+
+    unsigned char uc = static_cast<unsigned char>(c);
+    if (uc < 32 || uc >= 128) { // Printable ASCII range U+0020 to U+007E
+        uc = ' '; // Replace non-standard chars with space or '?'
+    }
+
+    // font8x8_basic has 8 rows per char, we use the first CHAR_DISPLAY_HEIGHT (7)
+    // LSB is the leftmost pixel of the 8 font pixels. We use the first CHAR_DISPLAY_WIDTH (5).
+    return (font8x8_basic[uc][char_y] >> char_x) & 1;
+}
+
+void ScrollingTextEffect::drawPixel(int x, int y, const HsbColor& color) {
+    if (x < 0 || x >= _matrixWidth || y < 0 || y >= _matrixHeight) {
+        return; // Out of matrix bounds
+    }
+    // Mapping: Left-top (0,0 on screen) is LED 63. Right-bottom (7,7 on screen) is LED 0.
+    // Order: From right to left, then bottom to top.
+    // Screen Y (0=top, 7=bottom) -> Matrix Row (7=top, 0=bottom) -> 7-y
+    // Screen X (0=left, 7=right) -> Matrix Col (7=left, 0=right) -> 7-x
+    int ledIndex = (_matrixHeight - 1 - y) * _matrixWidth + (_matrixWidth - 1 - x);
+    _strip->SetPixelColor(ledIndex, color);
+}
+
+
+void ScrollingTextEffect::Update() {
+    if (!_strip || _params.text.isEmpty() || _actualTextPixelWidth == 0) {
+        if(_strip) _strip->ClearTo(RgbColor(0));
+        return;
+    }
+
+    unsigned long currentTimeMs = millis();
+    if (currentTimeMs - _lastScrollTimeMs < _params.scrollIntervalMs) {
+        return;
+    }
+    _lastScrollTimeMs = currentTimeMs;
+
+    _strip->ClearTo(RgbColor(0));
+    HsbColor textColor(_params.hue, _params.saturation, _params.brightness);
+
+    // Update scroll position
+    switch (_params.direction) {
+        case SCROLL_LEFT:
+            _scrollPositionX--;
+            if (_scrollPositionX + _actualTextPixelWidth <= 0) { // Text fully scrolled past left edge
+                _scrollPositionX = _matrixWidth; // Reset to right edge
+            }
+            break;
+        case SCROLL_RIGHT:
+            _scrollPositionX++;
+            if (_scrollPositionX >= _matrixWidth) { // Text start fully scrolled past right edge
+                _scrollPositionX = -_actualTextPixelWidth; // Reset to left edge
+            }
+            break;
+        case SCROLL_UP:
+            _scrollPositionY--;
+            if (_scrollPositionY + CHAR_DISPLAY_HEIGHT <= 0) { // Text fully scrolled past top edge
+                _scrollPositionY = _matrixHeight; // Reset to bottom edge
+            }
+            break;
+        case SCROLL_DOWN:
+            _scrollPositionY++;
+            if (_scrollPositionY >= _matrixHeight) { // Text fully scrolled past bottom edge
+                _scrollPositionY = -CHAR_DISPLAY_HEIGHT; // Reset to top edge
+            }
+            break;
+    }
+
+    // Render text based on current scroll position
+    int vertical_char_offset = (_matrixHeight - CHAR_DISPLAY_HEIGHT) / 2; // For H-Scroll, center char vertically
+    int horizontal_text_offset = 0; // For V-Scroll, center text block horizontally
+    if (_params.direction == SCROLL_UP || _params.direction == SCROLL_DOWN) {
+        if (_actualTextPixelWidth < _matrixWidth) {
+            horizontal_text_offset = (_matrixWidth - _actualTextPixelWidth) / 2;
+        }
+    }
+    
+    for (int screen_y = 0; screen_y < _matrixHeight; ++screen_y) {
+        for (int screen_x = 0; screen_x < _matrixWidth; ++screen_x) {
+            
+            int text_canvas_x = 0; // x-coordinate on the conceptual full text string canvas
+            int text_canvas_y = 0; // y-coordinate on the conceptual full text string canvas (relative to char top)
+
+            if (_params.direction == SCROLL_LEFT || _params.direction == SCROLL_RIGHT) {
+                text_canvas_x = screen_x - _scrollPositionX;
+                text_canvas_y = screen_y - vertical_char_offset;
+            } else { // SCROLL_UP || SCROLL_DOWN
+                text_canvas_x = screen_x - horizontal_text_offset;
+                text_canvas_y = screen_y - _scrollPositionY;
+            }
+
+            if (text_canvas_y < 0 || text_canvas_y >= CHAR_DISPLAY_HEIGHT) continue; // Not within a character's vertical span
+            if (text_canvas_x < 0 || text_canvas_x >= _actualTextPixelWidth) continue; // Not within the text's horizontal span
+
+            int char_block_width = CHAR_DISPLAY_WIDTH + _params.charSpacing;
+            int char_index_in_string = text_canvas_x / char_block_width;
+            int x_within_char_block = text_canvas_x % char_block_width;
+
+            if (x_within_char_block < CHAR_DISPLAY_WIDTH) { // It's a character pixel, not spacing
+                if (char_index_in_string >= 0 && char_index_in_string < _params.text.length()) {
+                    char char_to_render = _params.text.charAt(char_index_in_string);
+                    if (getCharPixel(char_to_render, x_within_char_block, text_canvas_y)) {
+                        drawPixel(screen_x, screen_y, textColor);
+                    }
+                }
+            }
+        }
+    }
+}

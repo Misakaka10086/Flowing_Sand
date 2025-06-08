@@ -1,0 +1,17 @@
+{
+    "name": "ScrollingTextEffect",
+    "version": "1.0.0",
+    "description": "Scrolls ASCII text on an 8x8 LED matrix using a 5x7 font.",
+    "keywords": "led, neopixel, effect, animation, text, scroll, ascii",
+    "authors": [
+        {
+            "name": "Your Name / AI"
+        }
+    ],
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": {
+        "makuna/NeoPixelBus": "^2.8.4",
+        "bblanchon/ArduinoJson": "^7.4.1" 
+    }
+}
