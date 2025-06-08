@@ -1,0 +1,17 @@
+{
+    "name": "LavaLampEffect",
+    "version": "1.0.0",
+    "description": "An organic, fluid metaball simulation resembling a lava lamp or liquid mercury.",
+    "keywords": "led, neopixel, effect, animation, metaballs, fluid, lava lamp, mercury",
+    "authors": [
+        {
+            "name": "AI Assistant & User"
+        }
+    ],
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": {
+        "makuna/NeoPixelBus": "^2.8.4",
+        "bblanchon/ArduinoJson": "^7.4.1"
+    }
+}
