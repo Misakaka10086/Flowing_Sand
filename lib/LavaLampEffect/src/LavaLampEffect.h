@@ -17,7 +17,7 @@ public:
         float threshold;      // 能量阈值
         float baseSpeed;
         float baseBrightness;
-        float baseHue;
+        const char* baseColor; // 基础颜色, 16进制格式 (e.g., "#FF0000")
         float hueRange;       // 颜色从边缘到核心的变化范围
         const char* prePara;
     };
@@ -38,6 +38,8 @@ public:
 
 private:
     void initBlobs();
+    // 辅助函数，将16进制颜色字符串转换为RGB分量
+    void hexToRgb(const char* hex, uint8_t& r, uint8_t& g, uint8_t& b);
 
     NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* _strip = nullptr;
     uint8_t _matrixWidth = 8;
@@ -45,6 +47,8 @@ private:
     
     Metaball* _blobs = nullptr;
     Parameters _params;
+    // 存储从 baseColor 解析出的H值，以提高性能
+    float _internalBaseHue = 0.0f; 
     
     unsigned long _lastUpdateTime = 0;
 };
