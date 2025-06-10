@@ -154,6 +154,23 @@ void LavaLampEffect::initBlobs()
     }
 }
 
+int LavaLampEffect::mapCoordinatesToIndex(int x, int y) {
+    const int module_width = 8;
+    const int module_height = 8;
+    const int leds_per_module = module_width * module_height;
+    int module_col = x / module_width;
+    int module_row = y / module_height;
+    int base_index;
+    if (module_row == 1 && module_col == 1) base_index = 0;
+    else if (module_row == 1 && module_col == 0) base_index = leds_per_module * 1;
+    else if (module_row == 0 && module_col == 1) base_index = leds_per_module * 2;
+    else base_index = leds_per_module * 3;
+    int local_x = x % module_width;
+    int local_y = y % module_height;
+    int local_offset = (module_height - 1 - local_y) * module_width + (module_width - 1 - local_x);
+    return base_index + local_offset;
+}
+
 void LavaLampEffect::Update()
 {
     if (!_strip || !_blobs)
@@ -203,7 +220,6 @@ void LavaLampEffect::Update()
             {
                 float excessEnergy = totalEnergy - _params.threshold;
                 float brightness = constrain(excessEnergy * 0.5f, 0.0f, 1.0f) * _params.baseBrightness;
-                // 使用预先计算好的 _internalBaseHue
                 float hue = _internalBaseHue + constrain(excessEnergy * 0.2f, 0.0f, 1.0f) * _params.hueRange;
 
                 float saturation = 1.0f;
@@ -214,8 +230,10 @@ void LavaLampEffect::Update()
 
                 HsbColor color(hue, saturation, brightness);
 
-                int led_index = (7 - py) * 8 + (7 - px);
-                _strip->SetPixelColor(led_index, color);
+                int led_index = mapCoordinatesToIndex(px, py);
+                if (led_index >= 0 && led_index < _numLeds) {
+                    _strip->SetPixelColor(led_index, color);
+                }
             }
         }
     }

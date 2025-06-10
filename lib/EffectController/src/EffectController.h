@@ -35,7 +35,7 @@ public:
         codeRainEffect.Begin(strip);
         rippleEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         scrollingTextEffect.Begin(strip);
-        lavaLampEffect.Begin(strip);
+        lavaLampEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
     }
     
     // 主更新循环
