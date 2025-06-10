@@ -169,6 +169,23 @@ void GravityBallsEffect::initBalls()
     }
 }
 
+int GravityBallsEffect::mapCoordinatesToIndex(int x, int y) {
+    const int module_width = 8;
+    const int module_height = 8;
+    const int leds_per_module = module_width * module_height;
+    int module_col = x / module_width;
+    int module_row = y / module_height;
+    int base_index;
+    if (module_row == 1 && module_col == 1) base_index = 0;
+    else if (module_row == 1 && module_col == 0) base_index = leds_per_module * 1;
+    else if (module_row == 0 && module_col == 1) base_index = leds_per_module * 2;
+    else base_index = leds_per_module * 3;
+    int local_x = x % module_width;
+    int local_y = y % module_height;
+    int local_offset = (module_height - 1 - local_y) * module_width + (module_width - 1 - local_x);
+    return base_index + local_offset;
+}
+
 void GravityBallsEffect::Update()
 {
     if (_strip == nullptr || _accel == nullptr || _balls == nullptr)
@@ -190,7 +207,7 @@ void GravityBallsEffect::Update()
     float az_eff = (abs(rawAz) < _params.sensorDeadZone) ? 0 : rawAz;
 
     float forceX = -ax_eff * _params.gravityScale;
-    float forceY = az_eff * _params.gravityScale;
+    float forceY = -az_eff * _params.gravityScale;
 
     // Update balls using parameters from _params
     for (int i = 0; i < _params.numBalls; ++i)
@@ -274,7 +291,7 @@ void GravityBallsEffect::Update()
         int pixelY = round(_balls[i].y - ballRadius);
         pixelX = constrain(pixelX, 0, _matrixWidth - 1);
         pixelY = constrain(pixelY, 0, _matrixHeight - 1);
-        int ledIndex = pixelY * _matrixWidth + (_matrixWidth - 1 - pixelX);
+        int ledIndex = mapCoordinatesToIndex(pixelX, pixelY);
         if (ledIndex >= 0 && ledIndex < _numLeds)
         {
             HsbColor hsbColor(_balls[i].hue, _params.ballColorSaturation, _balls[i].brightnessFactor * (_params.baseBrightness / 255.0f));

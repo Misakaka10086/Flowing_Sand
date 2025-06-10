@@ -29,7 +29,7 @@ public:
         _strip = &strip;
         // 初始化所有效果
         zenEffect.Begin(strip);
-        if (!gravityEffect.Begin(strip)) {
+        if (!gravityEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT)) {
             Serial.println("Gravity Effect FAILED to init!");
         }
         codeRainEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
