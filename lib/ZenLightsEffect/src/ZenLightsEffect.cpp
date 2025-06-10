@@ -206,6 +206,23 @@ int ZenLightsEffect::countActiveLeds()
     return count;
 }
 
+int ZenLightsEffect::mapCoordinatesToIndex(int x, int y) {
+    const int module_width = 8;
+    const int module_height = 8;
+    const int leds_per_module = module_width * module_height;
+    int module_col = x / module_width;
+    int module_row = y / module_height;
+    int base_index;
+    if (module_row == 1 && module_col == 1) base_index = 0;
+    else if (module_row == 1 && module_col == 0) base_index = leds_per_module * 1;
+    else if (module_row == 0 && module_col == 1) base_index = leds_per_module * 2;
+    else base_index = leds_per_module * 3;
+    int local_x = x % module_width;
+    int local_y = y % module_height;
+    int local_offset = (module_height - 1 - local_y) * module_width + (module_width - 1 - local_x);
+    return base_index + local_offset;
+}
+
 void ZenLightsEffect::tryActivateNewLed()
 {
     if (countActiveLeds() >= _params.maxActiveLeds)
@@ -213,11 +230,16 @@ void ZenLightsEffect::tryActivateNewLed()
         return;
     }
 
-    int candidateLed = random(_numLeds);
+    // 随机选择一个坐标
+    int x = random(_matrixWidth);
+    int y = random(_matrixHeight);
+    int candidateLed = mapCoordinatesToIndex(x, y);
     int attempts = 0;
     while (_ledStates[candidateLed].isActive && attempts < _numLeds * 2)
     {
-        candidateLed = random(_numLeds);
+        x = random(_matrixWidth);
+        y = random(_matrixHeight);
+        candidateLed = mapCoordinatesToIndex(x, y);
         attempts++;
     }
 

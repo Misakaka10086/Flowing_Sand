@@ -28,7 +28,7 @@ public:
         const uint8_t MATRIX_HEIGHT = 16;
         _strip = &strip;
         // 初始化所有效果
-        zenEffect.Begin(strip);
+        zenEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         if (!gravityEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT)) {
             Serial.println("Gravity Effect FAILED to init!");
         }

@@ -32,20 +32,7 @@ public:
 
     // 初始化方法
     template<typename T_NeoPixelBus>
-    void Begin(T_NeoPixelBus& strip)
-    {
-        // ... (Begin 方法保持不变) ...
-        _strip = &strip;
-        _numLeds = strip.PixelCount();
-        if (_ledStates != nullptr) {
-            delete[] _ledStates;
-        }
-        _ledStates = new LedEffectState[_numLeds];
-        for (uint16_t i = 0; i < _numLeds; i++) {
-            _ledStates[i].isActive = false;
-        }
-        _lastAttemptTimeMs = millis();
-    }
+    void Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t matrixHeight);
 
     // 主更新函数
     void Update();
@@ -68,8 +55,13 @@ private:
         float hue;                  
     };
 
+    // 将矩阵坐标映射到LED索引
+    int mapCoordinatesToIndex(int x, int y);
+
     NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* _strip = nullptr;
     uint16_t _numLeds = 0;
+    uint8_t _matrixWidth = 0;
+    uint8_t _matrixHeight = 0;
     LedEffectState* _ledStates = nullptr;
     unsigned long _lastAttemptTimeMs = 0;
 
@@ -80,5 +72,22 @@ private:
     int countActiveLeds();
     void tryActivateNewLed();
 };
+
+// Template-based Begin must be in the header file
+template<typename T_NeoPixelBus>
+void ZenLightsEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t matrixHeight) {
+    _strip = &strip;
+    _numLeds = strip.PixelCount();
+    _matrixWidth = matrixWidth;
+    _matrixHeight = matrixHeight;
+    if (_ledStates != nullptr) {
+        delete[] _ledStates;
+    }
+    _ledStates = new LedEffectState[_numLeds];
+    for (uint16_t i = 0; i < _numLeds; i++) {
+        _ledStates[i].isActive = false;
+    }
+    _lastAttemptTimeMs = millis();
+}
 
 #endif // ZEN_LIGHTS_EFFECT_H
