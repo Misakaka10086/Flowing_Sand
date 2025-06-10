@@ -115,6 +115,23 @@ void CodeRainEffect::setPreset(const char* presetName) {
     }
 }
 
+int CodeRainEffect::mapCoordinatesToIndex(int x, int y) {
+    const int module_width = 8;
+    const int module_height = 8;
+    const int leds_per_module = module_width * module_height;
+    int module_col = x / module_width;
+    int module_row = y / module_height;
+    int base_index;
+    if (module_row == 1 && module_col == 1) base_index = 0;
+    else if (module_row == 1 && module_col == 0) base_index = leds_per_module * 1;
+    else if (module_row == 0 && module_col == 1) base_index = leds_per_module * 2;
+    else base_index = leds_per_module * 3;
+    int local_x = x % module_width;
+    int local_y = y % module_height;
+    int local_offset = (module_height - 1 - local_y) * module_width + (module_width - 1 - local_x);
+    return base_index + local_offset;
+}
+
 void CodeRainEffect::Update() {
     if (_strip == nullptr || _codeStreams == nullptr) return;
 
@@ -170,8 +187,7 @@ void CodeRainEffect::Update() {
                     }
                     
                     HsbColor hsbColor(_codeStreams[x].hue, _params.saturation, brightnessFactor * _params.baseBrightness);
-                    int logicalDrawY = _matrixHeight - 1 - charY;
-                    int ledIndex = logicalDrawY * _matrixWidth + (_matrixWidth - 1 - x);
+                    int ledIndex = mapCoordinatesToIndex(x, charY);
 
                     if (ledIndex >= 0 && ledIndex < _numLeds) {
                         _strip->SetPixelColor(ledIndex, hsbColor);

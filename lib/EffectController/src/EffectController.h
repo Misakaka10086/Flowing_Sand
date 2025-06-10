@@ -32,7 +32,7 @@ public:
         if (!gravityEffect.Begin(strip)) {
             Serial.println("Gravity Effect FAILED to init!");
         }
-        codeRainEffect.Begin(strip);
+        codeRainEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         rippleEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         scrollingTextEffect.Begin(strip);
         lavaLampEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);

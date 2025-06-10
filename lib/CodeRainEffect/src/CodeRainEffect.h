@@ -29,18 +29,7 @@ public:
     ~CodeRainEffect();
 
     template<typename T_NeoPixelBus>
-    void Begin(T_NeoPixelBus& strip)
-    {
-        _strip = &strip;
-        _numLeds = strip.PixelCount();
-        _matrixWidth = 8;
-        _matrixHeight = 8;
-        
-        // Apply initial parameters
-        setParameters(_params);
-
-        _lastFrameTimeMs = millis();
-    }
+    void Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t matrixHeight);
 
     void Update();
     void setParameters(const Parameters& params);
@@ -58,15 +47,32 @@ private:
         float hue;
     };
 
+    // 将矩阵坐标映射到LED索引
+    int mapCoordinatesToIndex(int x, int y);
+
     NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* _strip = nullptr;
     uint16_t _numLeds = 0;
-    uint8_t _matrixWidth = 8;
-    uint8_t _matrixHeight = 8;
+    uint8_t _matrixWidth = 0;
+    uint8_t _matrixHeight = 0;
 
     CodeStream* _codeStreams = nullptr;
     unsigned long _lastFrameTimeMs = 0;
 
     Parameters _params;
 };
+
+// Template-based Begin must be in the header file
+template<typename T_NeoPixelBus>
+void CodeRainEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t matrixHeight) {
+    _strip = &strip;
+    _numLeds = strip.PixelCount();
+    _matrixWidth = matrixWidth;
+    _matrixHeight = matrixHeight;
+    
+    // Apply initial parameters
+    setParameters(_params);
+
+    _lastFrameTimeMs = millis();
+}
 
 #endif // CODE_RAIN_EFFECT_H
