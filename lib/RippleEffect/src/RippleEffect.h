@@ -7,6 +7,11 @@
 class RippleEffect
 {
 public:
+    enum class Shape {
+        CIRCLE,
+        HEART
+    };
+
     struct Parameters {
         uint8_t maxRipples;
         float speed;
@@ -16,7 +21,8 @@ public:
         bool randomOrigin;
         float saturation;
         float baseBrightness;
-        float sharpness; // ADDED: Controls the brightness falloff curve
+        float sharpness;
+        Shape shape; // New field for shape
         const char* prePara;
     };
 
@@ -43,6 +49,7 @@ public:
     void setParameters(const Parameters& params);
     void setParameters(const char* jsonParams);
     void setPreset(const char* presetName);
+    void setShape(Shape newShape);
 
 private:
     struct Ripple {
@@ -64,6 +71,7 @@ private:
     unsigned long _lastAutoRippleTimeMs = 0;
 
     Parameters _params;
+    Shape _currentShape;
 };
 
 #endif // RIPPLE_EFFECT_H
