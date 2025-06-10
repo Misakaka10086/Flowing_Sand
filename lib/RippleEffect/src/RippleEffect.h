@@ -15,8 +15,9 @@ public:
         float maxRadius;
         bool randomOrigin;
         float saturation;
-        float baseBrightness; // 0.0 to 1.0
-        const char* prePara; // 新增字段，用于标识当前预设
+        float baseBrightness;
+        float sharpness; // ADDED: Controls the brightness falloff curve
+        const char* prePara;
     };
 
     static const Parameters WaterDropPreset;
@@ -26,14 +27,13 @@ public:
     ~RippleEffect();
 
     template<typename T_NeoPixelBus>
-    void Begin(T_NeoPixelBus& strip)
+    void Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t matrixHeight)
     {
         _strip = &strip;
         _numLeds = strip.PixelCount();
-        _matrixWidth = 8;
-        _matrixHeight = 8;
+        _matrixWidth = matrixWidth;
+        _matrixHeight = matrixHeight;
 
-        // Apply initial parameters
         setParameters(_params);
 
         _lastAutoRippleTimeMs = millis();
@@ -42,7 +42,7 @@ public:
     void Update();
     void setParameters(const Parameters& params);
     void setParameters(const char* jsonParams);
-    void setPreset(const char* presetName); // 新增预设切换方法
+    void setPreset(const char* presetName);
 
 private:
     struct Ripple {
@@ -52,10 +52,12 @@ private:
         float hue;
     };
 
+    int mapCoordinatesToIndex(int x, int y);
+
     NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>* _strip = nullptr;
     uint16_t _numLeds = 0;
-    uint8_t _matrixWidth = 8;
-    uint8_t _matrixHeight = 8;
+    uint8_t _matrixWidth = 0;
+    uint8_t _matrixHeight = 0;
 
     Ripple* _ripples = nullptr;
     uint8_t _nextRippleIndex = 0;

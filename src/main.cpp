@@ -4,7 +4,7 @@
 #include <MqttController.h>
 
 const int LED_PIN = 11;
-const int NUM_LEDS = 64;
+const int NUM_LEDS = 64*4;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 EffectController effectController;

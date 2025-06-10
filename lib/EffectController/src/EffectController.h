@@ -24,6 +24,8 @@ class EffectController
 public:
     template<typename T_NeoPixelBus>
     void Begin(T_NeoPixelBus& strip) {
+        const uint8_t MATRIX_WIDTH = 16;
+        const uint8_t MATRIX_HEIGHT = 16;
         _strip = &strip;
         // 初始化所有效果
         zenEffect.Begin(strip);
@@ -31,7 +33,7 @@ public:
             Serial.println("Gravity Effect FAILED to init!");
         }
         codeRainEffect.Begin(strip);
-        rippleEffect.Begin(strip);
+        rippleEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         scrollingTextEffect.Begin(strip);
         lavaLampEffect.Begin(strip);
     }
