@@ -1,44 +1,7 @@
-void CodeRainEffect::setParameters(const char* jsonParams) {
-    DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called.");
-    JsonDocument doc; // Using ArduinoJson v6 style
-    DeserializationError error = deserializeJson(doc, jsonParams);
-    if (error) {
-        DEBUG_PRINTF("CodeRainEffect::setParameters failed to parse JSON: %s\n", error.c_str());
-        return;
-    }
-
-    Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
-
-    if (doc["minSpeed"].is<float>()) newParams.minSpeed = doc["minSpeed"].as<float>();
-    if (doc["maxSpeed"].is<float>()) newParams.maxSpeed = doc["maxSpeed"].as<float>();
-    if (doc["minStreamLength"].is<int>()) newParams.minStreamLength = doc["minStreamLength"].as<int>();
-    if (doc["maxStreamLength"].is<int>()) newParams.maxStreamLength = doc["maxStreamLength"].as<int>();
-    if (doc["spawnProbability"].is<float>()) newParams.spawnProbability = doc["spawnProbability"].as<float>();
-    if (doc["minSpawnCooldownMs"].is<unsigned long>()) newParams.minSpawnCooldownMs = doc["minSpawnCooldownMs"].as<unsigned long>();
-    if (doc["maxSpawnCooldownMs"].is<unsigned long>()) newParams.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"].as<unsigned long>();
-    if (doc["baseHue"].is<float>()) newParams.baseHue = doc["baseHue"].as<float>();
-    if (doc["hueVariation"].is<float>()) newParams.hueVariation = doc["hueVariation"].as<float>();
-    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
-    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
-
-    if (doc["prePara"].is<const char*>()) {
-        const char* presetStr = doc["prePara"].as<const char*>();
-        if (presetStr) {
-            if (strcmp(presetStr, ClassicMatrixPreset.prePara) == 0) {
-                newParams.prePara = ClassicMatrixPreset.prePara;
-            } else if (strcmp(presetStr, FastGlitchPreset.prePara) == 0) {
-                newParams.prePara = FastGlitchPreset.prePara;
-            }
-        }
-    }
-
-    setParameters(newParams); // Call the struct version to handle logic and transition
-}
 #include "CodeRainEffect.h"
 #include <ArduinoJson.h>
 #include <cstring> // For strcmp
-#include "../../../include/DebugUtils.h"
-// 定义和初始化静态预设
+#include "../../../include/DebugUtils.h" // For DEBUG_PRINTLN, DEBUG_PRINTF
 const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .minSpeed = 12.0f,
     .maxSpeed = 20.0f,
@@ -128,8 +91,8 @@ void CodeRainEffect::setParameters(const Parameters& params) {
 }
 
 void CodeRainEffect::setParameters(const char* jsonParams) {
-    DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called.");
-    JsonDocument doc; // Using ArduinoJson v6 style
+    DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called [RE_APPLIED_FIX].");
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
         DEBUG_PRINTF("CodeRainEffect::setParameters failed to parse JSON: %s\n", error.c_str());
