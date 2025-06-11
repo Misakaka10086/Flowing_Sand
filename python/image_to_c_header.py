@@ -9,7 +9,9 @@ FRAME_BYTES = FRAME_PIXELS * 3
 
 
 # --- Helper Function to format byte data for C array ---
-def format_bytes_for_c(byte_list, bytes_per_line=16):
+def format_bytes_for_c(
+    byte_list, bytes_per_line=16 * 3
+):  # Changed default to 16 pixels * 3 bytes
     """Formats a list of bytes into a C-style array initializer string."""
     lines = []
     for i in range(0, len(byte_list), bytes_per_line):
@@ -23,6 +25,7 @@ def format_bytes_for_c(byte_list, bytes_per_line=16):
 def convert_image_to_header(image_path: str, output_header_name: str):
     """
     Converts an image (static or GIF) to a C header file for a 16x16 WS2812 matrix.
+    Transparent pixels are converted to black (RGB 0,0,0).
 
     Args:
         image_path: Path to the input image file (.png, .jpg, .gif, etc.).
@@ -35,9 +38,11 @@ def convert_image_to_header(image_path: str, output_header_name: str):
         return
 
     output_filename = f"{output_header_name}.h"
-    anim_variable_name = output_header_name.replace("-", "_").replace(
-        ".", "_"
-    )  # Sanitize for C variable name
+    # Sanitize for C variable name: replace non-alphanumeric chars with underscore
+    anim_variable_name = "".join(e if e.isalnum() else "_" for e in output_header_name)
+    # Ensure it doesn't start with a digit (valid C identifier)
+    if anim_variable_name[0].isdigit():
+        anim_variable_name = "_" + anim_variable_name
 
     frame_data_list = []  # List to hold byte data for each frame
 
@@ -48,21 +53,39 @@ def convert_image_to_header(image_path: str, output_header_name: str):
         num_frames = img.n_frames if is_animated else 1
 
         print(
-            f"Processing '{image_path}' ({'GIF' if is_animated else 'Static'} with {num_frames} frames)..."
+            f"Processing '{os.path.basename(image_path)}' ({'GIF' if is_animated else 'Static'} with {num_frames} frames)..."
         )
 
         for frame_index in range(num_frames):
             if is_animated:
+                # Seek to the frame for GIF
                 img.seek(frame_index)
 
-            # Convert frame to RGB and resize to the target dimensions
+            # --- Handle Transparency: Convert to RGBA and composite onto black ---
+            # Ensure the frame has an alpha channel (even if it's full opacity)
+            frame_rgba = img.convert("RGBA")
+
+            # Create a black background image matching the current frame's size
+            # We use the frame's *original* size before resizing to 16x16
+            background = Image.new("RGB", frame_rgba.size, color="black")
+
+            # Paste the RGBA frame onto the black background.
+            # The alpha channel of frame_rgba is used as the mask.
+            # Where alpha is 0, the black background shows through.
+            # Where alpha is 255, the original pixel color covers the background.
+            # Where alpha is between 0 and 255, colors are blended.
+            background.paste(frame_rgba, (0, 0), frame_rgba)
+            # Now 'background' is an RGB image where transparent areas from the source are black
+
+            # --- Resize the composited image to the target dimensions ---
             # Use LANCZOS for high-quality downsampling
-            frame = img.convert("RGB").resize(
+            resized_frame = background.resize(
                 (FRAME_WIDTH, FRAME_HEIGHT), Image.Resampling.LANCZOS
             )
+            # --- End Transparency Handling and Resizing ---
 
             # Extract pixel data (getdata returns a sequence of (R, G, B) tuples)
-            pixel_data = list(frame.getdata())
+            pixel_data = list(resized_frame.getdata())
 
             # Flatten the pixel data into a byte list [R1, G1, B1, R2, G2, B2, ...]
             flat_bytes = []
@@ -71,10 +94,9 @@ def convert_image_to_header(image_path: str, output_header_name: str):
 
             if len(flat_bytes) != FRAME_BYTES:
                 print(
-                    f"Warning: Frame {frame_index} data length mismatch! Expected {FRAME_BYTES}, got {len(flat_bytes)}"
+                    f"Warning: Frame {frame_index} data length mismatch after processing! Expected {FRAME_BYTES}, got {len(flat_bytes)}"
                 )
-                # Still add the data, but it indicates a potential issue
-                # This shouldn't happen with convert('RGB') and resize to fixed size
+                # This should not happen with correct resize and mode conversion, but good to check.
 
             frame_data_list.append(flat_bytes)
             print(f"  Processed frame {frame_index + 1}/{num_frames}")
@@ -89,6 +111,15 @@ def convert_image_to_header(image_path: str, output_header_name: str):
         return
     except Exception as e:
         print(f"An unexpected error occurred during image processing: {e}")
+        import traceback
+
+        traceback.print_exc()  # Print traceback for debugging
+        return
+
+    if not frame_data_list:
+        print(
+            f"Error: No frame data was successfully processed from '{image_path}'. Aborting header generation."
+        )
         return
 
     # --- Generate C Header Content ---
@@ -98,6 +129,7 @@ def convert_image_to_header(image_path: str, output_header_name: str):
 #include <stdint.h>
 
 // Animation data generated from {os.path.basename(image_path)}
+// Transparent pixels were converted to black.
 
 // Frame dimensions
 #define FRAME_WIDTH {FRAME_WIDTH}
@@ -112,6 +144,10 @@ typedef struct {{
 }} Animation;
 
 """
+    # Note the double curly braces {{ and }} to escape literal braces in f-strings
+    # The f-string syntax error happened here:
+    # header_content += f"};\n" <--- Incorrect
+    # header_content += f"}};\n" <--- Corrected
 
     # Add frame data arrays
     for i, frame_data in enumerate(frame_data_list):
@@ -119,36 +155,44 @@ typedef struct {{
         header_content += (
             f"const uint8_t {anim_variable_name}_frame{i}[FRAME_BYTES] = {{\n  "
         )
-        header_content += format_bytes_for_c(
-            frame_data, 16 * 3
-        )  # Bytes per row (16 pixels * 3 bytes)
-        # Optional: Add comments indicating rows for easier debugging
-        # header_content += format_bytes_for_c_with_rows(frame_data, 16)
-        header_content += "\n};\n\n"
+        header_content += format_bytes_for_c(frame_data)  # Use the updated helper
+        header_content += f"\n}}; // End of frame {i}\n\n"  # Corrected f-string syntax
 
     # Add array of frame pointers
     frame_pointer_list = [
         f"{anim_variable_name}_frame{i}" for i in range(len(frame_data_list))
     ]
     header_content += f"// Array of pointers to each frame's data\n"
-    header_content += f"const uint8_t* const {anim_variable_name}_frames[] = {{\n  "
+    header_content += f"const uint8_t* const {anim_variable_name}_frames[{len(frame_data_list)}] = {{\n  "  # Specify size
     header_content += ",\n  ".join(frame_pointer_list)
-    header_content += "\n};\n\n"
+    header_content += (
+        f"\n}}; // End of frame pointers array\n\n"  # Corrected f-string syntax
+    )
 
     # Add the main Animation struct instance
     header_content += f"// Animation definition\n"
+    # Use double braces for the struct initializer syntax
     header_content += f"const Animation {anim_variable_name}_anim = {{\n"
     header_content += f"  {anim_variable_name}_frames,\n"
     header_content += f"  sizeof({anim_variable_name}_frames) / sizeof({anim_variable_name}_frames[0])\n"
-    header_content += f"}};\n"
+    header_content += (
+        f"}}; // End of Animation struct instance\n"  # Corrected f-string syntax
+    )
 
     # --- Write to file ---
     try:
         with open(output_filename, "w") as f:
             f.write(header_content)
-        print(f"Successfully generated '{output_filename}'")
+        print(
+            f"Successfully generated '{output_filename}' ({len(frame_data_list)} frames)"
+        )
     except IOError as e:
         print(f"Error writing to file '{output_filename}': {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred during file writing: {e}")
+        import traceback
+
+        traceback.print_exc()
 
 
 # --- Example Usage ---
@@ -165,7 +209,7 @@ if __name__ == "__main__":
 
     # Example: Convert a GIF animation (replace 'path/to/your/animation.gif' with a real path)
     print("\n--- Converting GIF Animation ---")
-    gif_path = "python/world.gif"  # <<< CHANGE THIS PATH
+    gif_path = "python/mario_walk__r1351314241.gif"  # <<< CHANGE THIS PATH
     output_gif_name = "animated_heart"
 
     if gif_path and os.path.exists(gif_path):

@@ -85,7 +85,7 @@ This project is designed to control a strip of 256 NeoPixel LEDs (arranged as 64
         *   Commands can be sent to select an effect, set a preset for the current effect, or set specific parameters for the current effect.
         *   **Select an Effect:**
             *   Payload: `{"effect": "effect_name"}`
-            *   Replace `"effect_name"` with one of the supported values: `"gravity_balls"`, `"zen_lights"`, `"code_rain"`, `"ripple"`, `"scrolling_text"`, `"lava_lamp"`, `"noise"`, `"animation_effect"`.
+            *   Replace `"effect_name"` with one of the supported values: `"gravity_balls"`, `"zen_lights"`, `"code_rain"`, `"ripple"`, `"scrolling_text"`, `"lava_lamp"`.
         *   **Set a Preset:**
             *   Payload: `{"prePara": "preset_name"}`
             *   This command applies to the currently active effect.
