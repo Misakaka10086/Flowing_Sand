@@ -5,6 +5,7 @@
 const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
     .maxRipples = 5,
     .speed = 4.0f,
+    .acceleration = 0.0f,
     .thickness = 2.0f,
     .spawnIntervalS = 2.0f,
     .maxRadius = 16 * 1.2f,
@@ -18,6 +19,7 @@ const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
 const RippleEffect::Parameters RippleEffect::EnergyPulsePreset = {
     .maxRipples = 8,
     .speed = 8.0f,
+    .acceleration = 0.0f,
     .thickness = 1.5f,
     .spawnIntervalS = 0.5f,
     .maxRadius = 16 * 1.5f,
@@ -74,6 +76,7 @@ void RippleEffect::setParameters(const char* jsonParams) {
         }
     }
     _params.speed = doc["speed"] | _params.speed;
+    _params.acceleration = doc["acceleration"] | _params.acceleration;
     _params.thickness = doc["thickness"] | _params.thickness;
     _params.spawnIntervalS = doc["spawnIntervalS"] | _params.spawnIntervalS;
     _params.maxRadius = doc["maxRadius"] | _params.maxRadius;
@@ -161,7 +164,7 @@ void RippleEffect::Update() {
                 if (_ripples[r_idx].isActive) {
                     float elapsedTimeS = (float)(currentTimeMs - _ripples[r_idx].startTimeMs) / 1000.0f;
                     float currentRadius = elapsedTimeS * _params.speed - _params.thickness / 2.0f;
-
+                    currentRadius += _params.acceleration * elapsedTimeS;
                     if (currentRadius > _params.maxRadius + _params.thickness / 2.0f) {
                         _ripples[r_idx].isActive = false;
                         continue;
