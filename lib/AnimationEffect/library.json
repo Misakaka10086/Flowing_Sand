@@ -1,0 +1,19 @@
+{
+  "name": "AnimationEffect",
+  "version": "1.0.0",
+  "description": "An effect to play pre-stored frame animations on an LED matrix.",
+  "keywords": "led, animation, esp32, neopixel",
+  "authors": [
+    {
+      "name": "Your Name/AI",
+      "email": "your_email@example.com",
+      "maintainer": true
+    }
+  ],
+  "dependencies": {
+    "bblanchon/ArduinoJson": "^6.0.0 || ^7.0.0",
+    "makuna/NeoPixelBus": "^2.7.0"
+  },
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

@@ -64,6 +64,14 @@ This project is designed to control a strip of 256 NeoPixel LEDs (arranged as 64
         *   Description: Creates a calming effect with LEDs lighting up and fading out gently at random positions.
         *   Parameters: `maxActiveLeds`, `minDurationMs`, `maxDurationMs`, `minPeakBrightness`, `maxPeakBrightness`, `baseBrightness`, `hueMin`, `hueMax`, `saturation`, `spawnIntervalMs`.
         *   Presets: `ZenPreset`, `FireflyPreset`.
+    *   `AnimationEffect/`
+        *   Description: Plays pre-stored frame-based animations on the LED matrix.
+        *   Parameters:
+            *   `prePara` (String): Specifies the name of the animation to play (e.g., `"animated_heart"` which refers to `animated_heart_anim`).
+            *   `baseSpeed` (float): Sets the playback speed in frames per second (e.g., `5.0`).
+        *   Presets:
+            *   `default`: Plays the "animated_heart" animation at 5 frames per second.
+                          (This corresponds to the `DefaultPreset` in the code).
     *   Each of these libraries likely implements a specific visual pattern or animation for the LED strip, inheriting from a common base class or interface if one exists.
 
 ## 6. Communication Protocol
@@ -76,7 +84,7 @@ This project is designed to control a strip of 256 NeoPixel LEDs (arranged as 64
         *   Commands can be sent to select an effect, set a preset for the current effect, or set specific parameters for the current effect.
         *   **Select an Effect:**
             *   Payload: `{"effect": "effect_name"}`
-            *   Replace `"effect_name"` with one of the supported values: `"gravity_balls"`, `"zen_lights"`, `"code_rain"`, `"ripple"`, `"scrolling_text"`, `"lava_lamp"`, `"noise"`.
+            *   Replace `"effect_name"` with one of the supported values: `"gravity_balls"`, `"zen_lights"`, `"code_rain"`, `"ripple"`, `"scrolling_text"`, `"lava_lamp"`, `"noise"`, `"animation_effect"`.
         *   **Set a Preset:**
             *   Payload: `{"prePara": "preset_name"}`
             *   This command applies to the currently active effect.

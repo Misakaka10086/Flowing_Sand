@@ -12,6 +12,7 @@ void EffectController::Update() {
         case EffectType::RIPPLE:        rippleEffect.Update();   break;
         case EffectType::SCROLLING_TEXT: scrollingTextEffect.Update(); break;
         case EffectType::LAVA_LAMP:     lavaLampEffect.Update(); break;
+        case EffectType::ANIMATION_EFFECT: animationEffect.Update(); break;
     }
 }
 
@@ -35,6 +36,7 @@ void EffectController::processCommand(const char* jsonCommand) {
         else if (strcmp(effectName, "ripple") == 0) _currentEffect = EffectType::RIPPLE;
         else if (strcmp(effectName, "scrolling_text") == 0) _currentEffect = EffectType::SCROLLING_TEXT;
         else if (strcmp(effectName, "lava_lamp") == 0) _currentEffect = EffectType::LAVA_LAMP;
+        else if (strcmp(effectName, "animation_effect") == 0) _currentEffect = EffectType::ANIMATION_EFFECT;
         DEBUG_PRINTF("Switched to effect: %s\n", effectName);
     }
 
@@ -56,8 +58,12 @@ void EffectController::processCommand(const char* jsonCommand) {
                 break;
             case EffectType::SCROLLING_TEXT:
                 scrollingTextEffect.setPreset(presetName);
+                break; // Added missing break
             case EffectType::LAVA_LAMP:
                 lavaLampEffect.setPreset(presetName);
+                break;
+            case EffectType::ANIMATION_EFFECT:
+                animationEffect.setPreset(presetName);
                 break;
             // 其他效果的预设切换可以在这里添加
             default:
@@ -90,8 +96,12 @@ void EffectController::processCommand(const char* jsonCommand) {
                 break;
             case EffectType::SCROLLING_TEXT:
                 scrollingTextEffect.setParameters(paramsStr.c_str());
+                break; // Added missing break
             case EffectType::LAVA_LAMP:
                 lavaLampEffect.setParameters(paramsStr.c_str());
+                break;
+            case EffectType::ANIMATION_EFFECT:
+                animationEffect.setParameters(paramsStr.c_str());
                 break;
         }
     }

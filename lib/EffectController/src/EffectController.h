@@ -8,6 +8,7 @@
 #include "RippleEffect.h"
 #include "ScrollingTextEffect.h"
 #include "LavaLampEffect.h"
+#include "../../AnimationEffect/src/AnimationEffect.h" // Add this include
 #include "../../../include/DebugUtils.h"
 
 // 使用枚举来表示效果，更安全
@@ -17,7 +18,8 @@ enum class EffectType {
     CODE_RAIN,
     RIPPLE,
     SCROLLING_TEXT,
-    LAVA_LAMP
+    LAVA_LAMP,
+    ANIMATION_EFFECT // Add this line
 };
 
 class EffectController
@@ -37,6 +39,7 @@ public:
         rippleEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         scrollingTextEffect.Begin(strip);
         lavaLampEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
+        animationEffect.Begin(*_strip, MATRIX_WIDTH, MATRIX_HEIGHT); // Add this line
     }
     
     // 主更新循环
@@ -54,6 +57,7 @@ private:
     RippleEffect rippleEffect;
     ScrollingTextEffect scrollingTextEffect;
     LavaLampEffect lavaLampEffect;
+    AnimationEffect animationEffect; // Add this line
     
     EffectType _currentEffect = EffectType::GRAVITY_BALLS; // 默认效果
 };
