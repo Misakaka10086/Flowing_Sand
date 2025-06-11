@@ -14,7 +14,7 @@
     "frameworks": "arduino",
     "platforms": "espressif32",
     "dependencies": {
-        "bblanchon/ArduinoJson": "^6.21.3"
+        "bblanchon/ArduinoJson": "7.4.1"
     },
     "build": {
         "includeDir": "src"

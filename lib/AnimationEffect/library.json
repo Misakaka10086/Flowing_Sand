@@ -11,7 +11,7 @@
     }
   ],
   "dependencies": {
-    "bblanchon/ArduinoJson": "^6.0.0 || ^7.0.0",
+    "bblanchon/ArduinoJson": "7.4.1",
     "makuna/NeoPixelBus": "^2.7.0"
   },
   "frameworks": "arduino",

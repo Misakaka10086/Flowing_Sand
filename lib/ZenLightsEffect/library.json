@@ -11,6 +11,7 @@
     "frameworks": "arduino",
     "platforms": "espressif32",
     "dependencies": {
-        "makuna/NeoPixelBus": "^2.7.0"
+        "makuna/NeoPixelBus": "^2.7.0",
+        "bblanchon/ArduinoJson": "7.4.1"
     }
 }

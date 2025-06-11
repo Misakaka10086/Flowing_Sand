@@ -23,4 +23,19 @@ if (doc["key"].is<uint8_t>()) {
     uint8_t value = doc["key"].as<uint8_t>();
 }
 
-``` 
+```
+
+## 3. 依赖版本一致性规则 (Dependency Version Consistency Rule)
+- **目标 (Goal):** 确保项目中所有 `library.json` 文件对共享库（如 `bblanchon/ArduinoJson`）使用统一的版本号。 (Ensure all `library.json` files in the project use consistent version numbers for shared libraries, such as `bblanchon/ArduinoJson`.)
+- **操作 (Action):**
+    - 当添加新的效果库或修改现有库时，检查通用依赖项（特别是 `bblanchon/ArduinoJson`）的版本号。 (When adding new effect libraries or modifying existing ones, check the version numbers of common dependencies, especially `bblanchon/ArduinoJson`.)
+    - 保持版本号与项目中其他库一致。例如，如果项目统一使用 `bblanchon/ArduinoJson@7.4.1`，则所有 `library.json` 文件都应指定此版本。 (Maintain version consistency with other libraries in the project. For example, if the project standardizes on `bblanchon/ArduinoJson@7.4.1`, all `library.json` files should specify this version.)
+    - `platformio.ini` 中的 `lib_deps` 也应遵循此统一版本策略（如果适用）。 (`lib_deps` in `platformio.ini` should also follow this unified version strategy where applicable.)
+- **示例 (Example):**
+    - 所有 `library.json` 文件中的依赖应如下所示 (Dependencies in all `library.json` files should look like this):
+      ```json
+      "dependencies": {
+        "bblanchon/ArduinoJson": "7.4.1",
+        // other dependencies
+      }
+      ```
