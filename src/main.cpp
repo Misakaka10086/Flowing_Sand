@@ -3,7 +3,6 @@
 #include <EffectController.h>
 #include <MqttController.h>
 
-
 const int LED_PIN = 11;
 const int NUM_LEDS = 64 * 4;
 

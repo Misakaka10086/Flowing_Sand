@@ -5,3 +5,11 @@
 .vscode/ipch
 include/secrets.h
 .venv
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.tiff
+*.ico
+*.webp
