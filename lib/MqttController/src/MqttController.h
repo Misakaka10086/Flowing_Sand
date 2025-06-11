@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <AsyncMqttClient.h>
 #include "../../../include/secrets.h" // 在头文件中包含，因为实现也在这里
+#include "../../../include/DebugUtils.h"
 
 typedef void (*CommandCallback)(const char* commandPayload);
 
@@ -37,16 +38,16 @@ public:
         
         // 使用Lambda表达式注册WiFi事件
         WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
-            Serial.printf("[WiFi-event] event: %d\n", event);
+            DEBUG_PRINTF("[WiFi-event] event: %d\n", event);
             switch(event) {
                 case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-                    Serial.println("WiFi connected");
-                    Serial.print("IP address: ");
-                    Serial.println(WiFi.localIP());
+                    DEBUG_PRINTLN("WiFi connected");
+                    DEBUG_PRINT("IP address: ");
+                    DEBUG_PRINTLN(WiFi.localIP());
                     connectToMqtt(); 
                     break;
                 case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-                    Serial.println("WiFi lost connection");
+                    DEBUG_PRINTLN("WiFi lost connection");
                     xTimerStop(_mqttReconnectTimer, 0); 
                     xTimerStart(_wifiReconnectTimer, 0);
                     break;

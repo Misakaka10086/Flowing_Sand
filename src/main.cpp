@@ -1,7 +1,8 @@
+#include "DebugUtils.h"
 #include <Arduino.h>
 #include <EffectController.h>
 #include <MqttController.h>
-#include <NeoPixelBus.h>
+
 
 const int LED_PIN = 11;
 const int NUM_LEDS = 64 * 4;
@@ -12,7 +13,7 @@ MqttController mqttController;
 
 // 回调函数：将MQTT收到的指令转发给效果控制器
 void onCommandReceived(const char *command) {
-  Serial.printf("Command received by main: %s\n", command);
+  DEBUG_PRINTF("Command received by main: %s\n", command);
   effectController.processCommand(command);
 }
 

@@ -2,6 +2,7 @@
 #define LAVA_LAMP_EFFECT_H
 
 #include <NeoPixelBus.h>
+#include "../../../include/TransitionUtils.h" // For DEFAULT_TRANSITION_DURATION_MS
 
 class LavaLampEffect {
 private:
@@ -49,9 +50,17 @@ private:
     uint8_t _matrixHeight = 0;
     
     Metaball* _blobs = nullptr;
-    Parameters _params;
+    Parameters _activeParams;
+    Parameters _targetParams;
+    Parameters _oldParams;
+
+    bool _effectInTransition;
+    unsigned long _effectTransitionStartTimeMs;
+    unsigned long _effectTransitionDurationMs;
     // 存储从 baseColor 解析出的H值，以提高性能
-    float _internalBaseHue = 0.0f; 
+    float _activeInternalBaseHue = 0.0f;
+    float _targetInternalBaseHue = 0.0f;
+    float _oldInternalBaseHue = 0.0f;
     
     unsigned long _lastUpdateTime = 0;
 };
@@ -65,7 +74,7 @@ void LavaLampEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t ma
     _matrixHeight = matrixHeight;
     // 确保在设置参数前初始化
     if (_blobs != nullptr) delete[] _blobs;
-    _blobs = new Metaball[_params.numBlobs];
+    _blobs = new Metaball[_activeParams.numBlobs];
     initBlobs();
     _lastUpdateTime = millis();
 }

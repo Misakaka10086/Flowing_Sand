@@ -6,6 +6,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <math.h>
+#include "../../../include/TransitionUtils.h"
 
 class GravityBallsEffect
 {
@@ -65,7 +66,13 @@ private:
     
     unsigned long _lastUpdateTime = 0;
     
-    Parameters _params; // 使用参数结构体存储所有配置
+    Parameters _activeParams;
+    Parameters _targetParams;
+    Parameters _oldParams;
+
+    bool _effectInTransition;
+    unsigned long _effectTransitionStartTimeMs;
+    unsigned long _effectTransitionDurationMs; // 使用参数结构体存储所有配置
 
     void initBalls();
 };

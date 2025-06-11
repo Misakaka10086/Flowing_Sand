@@ -1,5 +1,6 @@
 #include "EffectController.h"
 #include <ArduinoJson.h>
+#include "../../../include/DebugUtils.h"
 
 void EffectController::Update() {
     if (!_strip) return;
@@ -19,8 +20,7 @@ void EffectController::processCommand(const char* jsonCommand) {
     DeserializationError error = deserializeJson(doc, jsonCommand);
 
     if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.c_str());
+        DEBUG_PRINTF("deserializeJson() failed: %s\n", error.c_str());
         return;
     }
 
@@ -35,7 +35,7 @@ void EffectController::processCommand(const char* jsonCommand) {
         else if (strcmp(effectName, "ripple") == 0) _currentEffect = EffectType::RIPPLE;
         else if (strcmp(effectName, "scrolling_text") == 0) _currentEffect = EffectType::SCROLLING_TEXT;
         else if (strcmp(effectName, "lava_lamp") == 0) _currentEffect = EffectType::LAVA_LAMP;
-        Serial.printf("Switched to effect: %s\n", effectName);
+        DEBUG_PRINTF("Switched to effect: %s\n", effectName);
     }
 
     // 处理预设切换
@@ -61,7 +61,7 @@ void EffectController::processCommand(const char* jsonCommand) {
                 break;
             // 其他效果的预设切换可以在这里添加
             default:
-                Serial.println("Preset switching not supported for current effect");
+                DEBUG_PRINTLN("Preset switching not supported for current effect");
                 break;
         }
     }
@@ -73,7 +73,7 @@ void EffectController::processCommand(const char* jsonCommand) {
         String paramsStr;
         serializeJson(paramsObj, paramsStr);
         
-        Serial.printf("Dispatching params to current effect: %s\n", paramsStr.c_str());
+        DEBUG_PRINTF("Dispatching params to current effect: %s\n", paramsStr.c_str());
 
         switch (_currentEffect) {
             case EffectType::GRAVITY_BALLS:

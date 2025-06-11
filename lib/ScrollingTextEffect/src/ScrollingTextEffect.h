@@ -4,6 +4,7 @@
 #include <NeoPixelBus.h>
 #include <ArduinoJson.h> // For parsing parameters
 #include <WString.h>     // For Arduino String
+#include "../../../include/TransitionUtils.h"
 
 // Forward declaration if font8x8_basic is not included here but in .cpp
 // For simplicity, we will include it in the .cpp file.
@@ -47,7 +48,7 @@ public:
         _matrixHeight = 8;
         
         // Apply initial parameters and calculate text dimensions
-        setParameters(_params); // This will call resetScroll internally
+        setParameters(DefaultPreset); // This will call resetScroll internally
         _lastScrollTimeMs = millis();
     }
 
@@ -62,7 +63,13 @@ private:
     uint8_t _matrixWidth = 0;
     uint8_t _matrixHeight = 0;
 
-    Parameters _params;
+    Parameters _activeParams;
+    Parameters _targetParams;
+    Parameters _oldParams;
+
+    bool _effectInTransition;
+    unsigned long _effectTransitionStartTimeMs;
+    unsigned long _effectTransitionDurationMs;
 
     unsigned long _lastScrollTimeMs = 0;
     int _scrollPositionX = 0; // Current X offset of the text relative to screen left

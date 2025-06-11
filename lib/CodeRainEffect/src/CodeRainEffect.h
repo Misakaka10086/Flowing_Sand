@@ -3,6 +3,7 @@
 
 #include <NeoPixelBus.h>
 #include <math.h>
+#include "../../../include/TransitionUtils.h"
 
 class CodeRainEffect
 {
@@ -58,7 +59,13 @@ private:
     CodeStream* _codeStreams = nullptr;
     unsigned long _lastFrameTimeMs = 0;
 
-    Parameters _params;
+    Parameters _activeParams;
+    Parameters _targetParams;
+    Parameters _oldParams;
+
+    bool _effectInTransition;
+    unsigned long _effectTransitionStartTimeMs;
+    unsigned long _effectTransitionDurationMs;
 };
 
 // Template-based Begin must be in the header file
@@ -70,7 +77,7 @@ void CodeRainEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t ma
     _matrixHeight = matrixHeight;
     
     // Apply initial parameters
-    setParameters(_params);
+    setParameters(ClassicMatrixPreset);
 
     _lastFrameTimeMs = millis();
 }

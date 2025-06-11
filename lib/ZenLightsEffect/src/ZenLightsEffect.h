@@ -3,6 +3,7 @@
 
 #include <NeoPixelBus.h>
 #include <math.h>
+#include "../../../include/TransitionUtils.h"
 
 class ZenLightsEffect
 {
@@ -66,7 +67,13 @@ private:
     unsigned long _lastAttemptTimeMs = 0;
 
     // 私有成员变量现在用来存储当前激活的参数
-    Parameters _params; // 用一个参数对象来存储所有配置
+    Parameters _activeParams;
+    Parameters _targetParams;
+    Parameters _oldParams;
+
+    bool _effectInTransition;
+    unsigned long _effectTransitionStartTimeMs;
+    unsigned long _effectTransitionDurationMs; // 用一个参数对象来存储所有配置
 
     // 私有辅助函数
     int countActiveLeds();

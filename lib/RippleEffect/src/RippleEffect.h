@@ -1,8 +1,10 @@
 #ifndef RIPPLE_EFFECT_H
 #define RIPPLE_EFFECT_H
 
+#include "../../../include/TransitionUtils.h"
 #include <NeoPixelBus.h>
 #include <math.h>
+
 
 class RippleEffect {
 public:
@@ -33,7 +35,7 @@ public:
     _matrixWidth = matrixWidth;
     _matrixHeight = matrixHeight;
 
-    setParameters(_params);
+    setParameters(WaterDropPreset);
 
     _lastAutoRippleTimeMs = millis();
   }
@@ -62,7 +64,13 @@ private:
   uint8_t _nextRippleIndex = 0;
   unsigned long _lastAutoRippleTimeMs = 0;
 
-  Parameters _params;
+  Parameters _activeParams;
+  Parameters _targetParams;
+  Parameters _oldParams;
+
+  bool _effectInTransition;
+  unsigned long _effectTransitionStartTimeMs;
+  unsigned long _effectTransitionDurationMs;
 };
 
 #endif // RIPPLE_EFFECT_H
