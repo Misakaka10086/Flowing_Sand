@@ -10,11 +10,10 @@ public:
     struct Parameters {
         const char* prePara; // Name of the animation to play (e.g., "animated_heart_anim")
         float baseSpeed;     // Playback speed (frames per second)
-        // Add other parameters here if needed in the future, e.g., brightness
     };
 
     // Define any presets if needed, e.g.:
-    // static const Parameters DefaultPreset;
+    static const Parameters DefaultPreset; // Declaration
 
     AnimationEffect();
     ~AnimationEffect();
@@ -51,9 +50,6 @@ private:
     bool _effectInTransition;
     unsigned long _effectTransitionStartTimeMs;
     unsigned long _effectTransitionDurationMs;
-
-    // Add a default animation preset if makes sense, e.g. using animated_heart_anim
-    static const Parameters DefaultPreset;
 };
 
 // Template-based Begin must be in the header file
@@ -65,8 +61,15 @@ void AnimationEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_t m
     _matrixHeight = matrixHeight;
 
     // Initialize with default parameters or a specific preset
-    // For now, let's create a default preset that will be defined in the .cpp
-    // setParameters(DefaultPreset); // This will be uncommented once DefaultPreset is defined
+    // The initial version called setParameters(DefaultPreset) here.
+    // The constructor in the original .cpp also set _activeParams = DefaultPreset.
+    // To match the first submission's likely state, we'll assume DefaultPreset is applied here.
+    // However, the .cpp will define DefaultPreset.
+    // The constructor of AnimationEffect (in the original .cpp) should handle _activeParams = DefaultPreset;
+    // _currentAnimation = findAnimationByName(_activeParams.prePara);
+    // _frameDurationMs = 1000.0f / _activeParams.baseSpeed;
+    // Let's keep Begin simple as per the very first version of this file.
+    // The actual application of DefaultPreset was primarily in the constructor in the first .cpp.
 
     _lastFrameTimeMs = millis();
 }
