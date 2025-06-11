@@ -5,8 +5,9 @@
 
 // Define the DefaultPreset
 const AnimationEffect::Parameters AnimationEffect::DefaultPreset = {
-    .prePara = "animated_heart", // This name will need to be resolved to the actual animation
-    .baseSpeed = 5.0f            // 5 frames per second
+    .prePara = "animated_heart",
+    .baseSpeed = 5.0f,
+    .baseBrightness = 1.0f // Add this line
 };
 
 // Helper function to find an animation by name
@@ -127,6 +128,11 @@ void AnimationEffect::setParameters(const char* jsonParams) {
         newParams.baseSpeed = doc["baseSpeed"].as<float>();
         if (newParams.baseSpeed <= 0.0f) newParams.baseSpeed = 1.0f;
     }
+    if (doc["baseBrightness"].is<float>()) {
+        newParams.baseBrightness = doc["baseBrightness"].as<float>();
+        // Constrain brightness to 0.0 - 1.0 range
+        newParams.baseBrightness = constrain(newParams.baseBrightness, 0.0f, 1.0f);
+    }
     setParameters(newParams);
 }
 
@@ -154,6 +160,7 @@ void AnimationEffect::Update() {
         t = constrain(t, 0.0f, 1.0f);
 
         _activeParams.baseSpeed = lerp(_oldParams.baseSpeed, _targetParams.baseSpeed, t);
+        _activeParams.baseBrightness = lerp(_oldParams.baseBrightness, _targetParams.baseBrightness, t);
 
         if (t >= 1.0f) {
             _effectInTransition = false;
@@ -187,9 +194,14 @@ void AnimationEffect::Update() {
             uint8_t r = frameData[pixelDataOffset];
             uint8_t g = frameData[pixelDataOffset + 1];
             uint8_t b = frameData[pixelDataOffset + 2];
+
+            uint8_t final_r = static_cast<uint8_t>(round(r * _activeParams.baseBrightness));
+            uint8_t final_g = static_cast<uint8_t>(round(g * _activeParams.baseBrightness));
+            uint8_t final_b = static_cast<uint8_t>(round(b * _activeParams.baseBrightness));
+
             int ledIndex = mapCoordinatesToIndex(x, y);
             if (ledIndex != -1 && ledIndex < _numLeds) {
-                _strip->SetPixelColor(ledIndex, RgbColor(r, g, b));
+                _strip->SetPixelColor(ledIndex, RgbColor(final_r, final_g, final_b));
             }
         }
     }

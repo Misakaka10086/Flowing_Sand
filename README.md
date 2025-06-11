@@ -69,6 +69,7 @@ This project is designed to control a strip of 256 NeoPixel LEDs (arranged as 64
         *   Parameters:
             *   `prePara` (String): Specifies the name of the animation to play (e.g., `"animated_heart"` which refers to `animated_heart_anim`).
             *   `baseSpeed` (float): Sets the playback speed in frames per second (e.g., `5.0`).
+            *   `baseBrightness` (float): Sets the overall brightness of the animation. Range: `0.0` (off) to `1.0` (full brightness). Default: `1.0`.
         *   Presets:
             *   `default`: Plays the "animated_heart" animation at 5 frames per second.
                           (This corresponds to the `DefaultPreset` in the code).

@@ -10,6 +10,7 @@ public:
     struct Parameters {
         const char* prePara; // Name of the animation to play (e.g., "animated_heart_anim")
         float baseSpeed;     // Playback speed (frames per second)
+        float baseBrightness; // Overall brightness (0.0 to 1.0)
     };
 
     // Define any presets if needed, e.g.:
