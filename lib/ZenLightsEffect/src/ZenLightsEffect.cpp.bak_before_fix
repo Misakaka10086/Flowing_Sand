@@ -97,8 +97,64 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
     _effectTransitionStartTimeMs = millis();
     _effectInTransition = true;
     _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
-    
+
     DEBUG_PRINTLN("ZenLightsEffect transition started from JSON.");
+}
+
+    // // 对于最大活动灯珠数的改变，需要特别处理，因为它涉及到内存重新分配
+    if (doc["maxActiveLeds"].is<int>()) {
+        int newMaxActiveLeds = doc["maxActiveLeds"].as<int>();
+        if (newMaxActiveLeds != _activeParams.maxActiveLeds) {
+            _activeParams.maxActiveLeds = newMaxActiveLeds;
+            if (_strip != nullptr) { // 确保已经Begin
+                // 创建新的状态数组
+                LedEffectState* newLedStates = new LedEffectState[_numLeds];
+
+                // 初始化新数组
+                for (uint16_t i = 0; i < _numLeds; i++) {
+                    newLedStates[i].isActive = false;
+                }
+
+                // 如果存在旧的状态数组，复制当前活动的LED状态
+                if (_ledStates != nullptr) {
+                    for (uint16_t i = 0; i < _numLeds; i++) {
+                        if (_ledStates[i].isActive) {
+                            // 保持当前活动的LED状态不变
+                            newLedStates[i] = _ledStates[i];
+                        }
+                    }
+                    delete[] _ledStates;
+                }
+
+                // 更新指针
+                _ledStates = newLedStates;
+                DEBUG_PRINTF("ZenLightsEffect: Maximum active LEDs changed to %d\n", _activeParams.maxActiveLeds);
+            }
+        }
+    }
+    // _activeParams.maxActiveLeds = doc["maxActiveLeds"] | _activeParams.maxActiveLeds;
+    // 更新其他参数
+    _activeParams.minDurationMs = doc["minDurationMs"] | _activeParams.minDurationMs;
+    _activeParams.maxDurationMs = doc["maxDurationMs"] | _activeParams.maxDurationMs;
+    _activeParams.minPeakBrightness = doc["minPeakBrightness"] | _activeParams.minPeakBrightness;
+    _activeParams.maxPeakBrightness = doc["maxPeakBrightness"] | _activeParams.maxPeakBrightness;
+    _activeParams.baseBrightness = doc["baseBrightness"] | _activeParams.baseBrightness;
+    _activeParams.hueMin = doc["hueMin"] | _activeParams.hueMin;
+    _activeParams.hueMax = doc["hueMax"] | _activeParams.hueMax;
+    _activeParams.saturation = doc["saturation"] | _activeParams.saturation;
+    _activeParams.spawnIntervalMs = doc["spawnIntervalMs"] | _activeParams.spawnIntervalMs;
+
+    // 如果JSON中包含prePara字段，则更新它
+    if (doc["prePara"].is<String>()) {
+        const char* newPrePara = doc["prePara"].as<String>().c_str();
+        if (strcmp(newPrePara, "Zen") == 0) {
+            _activeParams.prePara = ZenPreset.prePara;
+        } else if (strcmp(newPrePara, "Firefly") == 0) {
+            _activeParams.prePara = FireflyPreset.prePara;
+        }
+    }
+
+    DEBUG_PRINTLN("ZenLightsEffect parameters updated via JSON.");
 }
 
 void ZenLightsEffect::setPreset(const char* presetName) {
@@ -118,6 +174,19 @@ void ZenLightsEffect::setPreset(const char* presetName) {
         setParameters(FireflyPreset);
     } else {
         DEBUG_PRINTF("Unknown preset name in ZenLightsEffect::setPreset: %s\n", presetName);
+    }
+} else {
+            setParameters(ZenPreset);
+            DEBUG_PRINTLN("Switched to ZenPreset");
+        }
+    } else if (strcmp(presetName, "Zen") == 0) {
+        setParameters(ZenPreset);
+        DEBUG_PRINTLN("Switched to ZenPreset");
+    } else if (strcmp(presetName, "Firefly") == 0) {
+        setParameters(FireflyPreset);
+        DEBUG_PRINTLN("Switched to FireflyPreset");
+    } else {
+        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
     }
 }
 
