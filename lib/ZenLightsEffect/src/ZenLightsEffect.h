@@ -3,7 +3,7 @@
 
 #include <NeoPixelBus.h>
 #include <math.h>
-#include "../../include/TransitionUtils.h"
+#include "../../../include/TransitionUtils.h"
 
 class ZenLightsEffect
 {

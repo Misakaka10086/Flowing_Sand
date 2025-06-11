@@ -1,6 +1,6 @@
 #include "GravityBallsEffect.h"
 #include <ArduinoJson.h>
-#include "../../include/DebugUtils.h" // For DEBUG_PRINTF, DEBUG_PRINTLN
+#include "../../../include/DebugUtils.h" // For DEBUG_PRINTF, DEBUG_PRINTLN
 // 定义和初始化静态预设
 const GravityBallsEffect::Parameters GravityBallsEffect::BouncyPreset = {
     .numBalls = 15,

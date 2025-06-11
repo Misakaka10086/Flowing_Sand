@@ -8,7 +8,7 @@
 #include "RippleEffect.h"
 #include "ScrollingTextEffect.h"
 #include "LavaLampEffect.h"
-#include "../../include/DebugUtils.h"
+#include "../../../include/DebugUtils.h"
 
 // 使用枚举来表示效果，更安全
 enum class EffectType {

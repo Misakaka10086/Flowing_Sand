@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <AsyncMqttClient.h>
 #include "../../../include/secrets.h" // 在头文件中包含，因为实现也在这里
-#include "../../include/DebugUtils.h"
+#include "../../../include/DebugUtils.h"
 
 typedef void (*CommandCallback)(const char* commandPayload);
 

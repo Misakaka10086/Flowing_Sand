@@ -1,6 +1,6 @@
 #include "ZenLightsEffect.h"
 #include <ArduinoJson.h>
-#include "../../include/DebugUtils.h"
+#include "../../../include/DebugUtils.h"
 // ***** 3. 在.cpp文件中定义和初始化静态预设 *****
 const ZenLightsEffect::Parameters ZenLightsEffect::ZenPreset = {
     .maxActiveLeds = 5,

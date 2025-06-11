@@ -1,6 +1,6 @@
 #include "EffectController.h"
 #include <ArduinoJson.h>
-#include "../../include/DebugUtils.h"
+#include "../../../include/DebugUtils.h"
 
 void EffectController::Update() {
     if (!_strip) return;

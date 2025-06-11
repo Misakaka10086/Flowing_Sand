@@ -1,6 +1,6 @@
 #include "CodeRainEffect.h"
 #include <ArduinoJson.h>
-#include "../../include/DebugUtils.h"
+#include "../../../include/DebugUtils.h"
 // 定义和初始化静态预设
 const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .minSpeed = 12.0f,

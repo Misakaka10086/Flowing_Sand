@@ -6,7 +6,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <math.h>
-#include "../../include/TransitionUtils.h"
+#include "../../../include/TransitionUtils.h"
 
 class GravityBallsEffect
 {
