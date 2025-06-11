@@ -36,7 +36,6 @@ void CodeRainEffect::setParameters(const char* jsonParams) {
 }
 #include "CodeRainEffect.h"
 #include <ArduinoJson.h>
-#include <cstring> // For strcmp
 #include "../../../include/DebugUtils.h"
 // 定义和初始化静态预设
 const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
@@ -149,7 +148,7 @@ void CodeRainEffect::setParameters(const char* jsonParams) {
     if (doc["hueVariation"].is<float>()) newParams.hueVariation = doc["hueVariation"].as<float>();
     if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
     if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
-    
+
     if (doc["prePara"].is<const char*>()) {
         const char* presetStr = doc["prePara"].as<const char*>();
         if (presetStr) {
@@ -292,7 +291,7 @@ void CodeRainEffect::Update() {
                     if (l > 0 && random(100) < 10) {
                         brightnessFactor *= (random(70, 101) / 100.0f);
                     }
-                    
+
                     HsbColor hsbColor(_codeStreams[x].hue, _activeParams.saturation, brightnessFactor * _activeParams.baseBrightness);
                     int ledIndex = mapCoordinatesToIndex(x, charY);
 

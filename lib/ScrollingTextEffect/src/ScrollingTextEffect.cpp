@@ -105,12 +105,11 @@ void ScrollingTextEffect::setParameters(const char* jsonParams) {
         return;
     }
 
-    // Start with current target or active params to allow partial updates
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
 
-    if (doc.containsKey("text")) newParams.text = doc["text"].as<String>();
-    
-    if (doc.containsKey("direction")) {
+    if (doc["text"].is<String>()) newParams.text = doc["text"].as<String>();
+    // For enum, check as string then convert
+    if (doc["direction"].is<String>()) {
         String dirStr = doc["direction"].as<String>();
         if (dirStr.equalsIgnoreCase("left")) newParams.direction = SCROLL_LEFT;
         else if (dirStr.equalsIgnoreCase("right")) newParams.direction = SCROLL_RIGHT;
@@ -118,22 +117,21 @@ void ScrollingTextEffect::setParameters(const char* jsonParams) {
         else if (dirStr.equalsIgnoreCase("down")) newParams.direction = SCROLL_DOWN;
     }
 
-    if (doc.containsKey("hue")) newParams.hue = doc["hue"].as<float>();
-    if (doc.containsKey("saturation")) newParams.saturation = doc["saturation"].as<float>();
-    if (doc.containsKey("brightness")) newParams.brightness = doc["brightness"].as<float>();
-    if (doc.containsKey("scrollIntervalMs")) newParams.scrollIntervalMs = doc["scrollIntervalMs"].as<unsigned long>();
-    if (doc.containsKey("charSpacing")) newParams.charSpacing = doc["charSpacing"].as<uint8_t>();
+    if (doc["hue"].is<float>()) newParams.hue = doc["hue"].as<float>();
+    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
+    if (doc["brightness"].is<float>()) newParams.brightness = doc["brightness"].as<float>();
+    if (doc["scrollIntervalMs"].is<unsigned long>()) newParams.scrollIntervalMs = doc["scrollIntervalMs"].as<unsigned long>();
+    if (doc["charSpacing"].is<uint8_t>()) newParams.charSpacing = doc["charSpacing"].as<uint8_t>();
     
-    if (doc.containsKey("prePara")) {
+    if (doc["prePara"].is<const char*>()) {
          const char* presetStr = doc["prePara"].as<const char*>();
-         if (presetStr) { // Check for null if as<const char*> can return it
+         if (presetStr) {
             if (strcmp(presetStr, DefaultPreset.prePara) == 0) newParams.prePara = DefaultPreset.prePara;
             else if (strcmp(presetStr, FastBlueLeftPreset.prePara) == 0) newParams.prePara = FastBlueLeftPreset.prePara;
          }
     }
 
-    setParameters(newParams); // Call the struct version to handle logic and transition
-    // DEBUG_PRINTLN from struct version is sufficient.
+    setParameters(newParams);
 }
 
 void ScrollingTextEffect::setPreset(const char* presetName) {

@@ -143,47 +143,38 @@ void LavaLampEffect::setParameters(const char* jsonParams) {
         return;
     }
 
-    // Start with current target or active params to allow partial updates
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
+    bool preParaChangedAndMatched = false;
 
-    if (doc.containsKey("numBlobs")) newParams.numBlobs = doc["numBlobs"].as<uint8_t>();
-    if (doc.containsKey("threshold")) newParams.threshold = doc["threshold"].as<float>();
-    if (doc.containsKey("baseSpeed")) newParams.baseSpeed = doc["baseSpeed"].as<float>();
-    if (doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"].as<float>();
-
-    // Special handling for baseColor to ensure it points to a persistent string if prePara matches
-    bool preParaChangedAndMatched = false; // Flag to see if a known preset was fully applied
-    if (doc.containsKey("prePara")) {
+    if (doc["prePara"].is<const char*>()) {
         const char* presetStr = doc["prePara"].as<const char*>();
         if (presetStr) {
             if (strcmp(presetStr, ClassicLavaPreset.prePara) == 0) {
-                newParams = ClassicLavaPreset; // Copy entire preset
+                newParams = ClassicLavaPreset;
                 preParaChangedAndMatched = true;
             } else if (strcmp(presetStr, MercuryPreset.prePara) == 0) {
-                newParams = MercuryPreset; // Copy entire preset
+                newParams = MercuryPreset;
                 preParaChangedAndMatched = true;
             } else {
-                // If prePara is some custom string, assign it.
-                // User is responsible for lifetime of this string if it's not a literal.
                 newParams.prePara = presetStr;
             }
         }
     }
 
-    // Only parse baseColor from JSON if a known preset wasn't just fully applied.
-    // If a preset was applied, newParams.baseColor is already correct.
-    // If prePara was custom or not present, then parse baseColor if it exists.
-    if (doc.containsKey("baseColor") && !preParaChangedAndMatched) {
-        // This assignment is risky if doc["baseColor"] points to a temporary string in the JSON doc.
-        // For safety, this should ideally only happen if prePara is also being set to a custom value,
-        // or if Parameters.baseColor becomes a String type.
-        // For now, we follow the original pattern of direct assignment for non-preset baseColor.
-        newParams.baseColor = doc["baseColor"].as<const char*>(); // Potentially risky if JSON string is not long-lived
+    if (doc["numBlobs"].is<uint8_t>()) newParams.numBlobs = doc["numBlobs"].as<uint8_t>();
+    if (doc["threshold"].is<float>()) newParams.threshold = doc["threshold"].as<float>();
+    if (doc["baseSpeed"].is<float>()) newParams.baseSpeed = doc["baseSpeed"].as<float>();
+    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
+
+    if (doc["baseColor"].is<const char*>()) {
+        if (!preParaChangedAndMatched) {
+             newParams.baseColor = doc["baseColor"].as<const char*>();
+        }
     }
 
-    if (doc.containsKey("hueRange")) newParams.hueRange = doc["hueRange"].as<float>();
+    if (doc["hueRange"].is<float>()) newParams.hueRange = doc["hueRange"].as<float>();
 
-    setParameters(newParams); // Call the struct version to handle logic and transition
+    setParameters(newParams);
 }
 
 void LavaLampEffect::setPreset(const char* presetName) {
