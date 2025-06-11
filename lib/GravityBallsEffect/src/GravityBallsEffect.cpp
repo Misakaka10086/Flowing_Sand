@@ -1,6 +1,6 @@
 #include "GravityBallsEffect.h"
 #include <ArduinoJson.h>
-#include "../../include/DebugUtils.h"
+#include "../../include/DebugUtils.h" // For DEBUG_PRINTF, DEBUG_PRINTLN
 // 定义和初始化静态预设
 const GravityBallsEffect::Parameters GravityBallsEffect::BouncyPreset = {
     .numBalls = 15,
@@ -34,10 +34,19 @@ const GravityBallsEffect::Parameters GravityBallsEffect::PlasmaPreset = {
 
 GravityBallsEffect::GravityBallsEffect()
 {
+    _activeParams = BouncyPreset;
+    _targetParams = BouncyPreset;
+    _oldParams = BouncyPreset;
+    _effectInTransition = false;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS; // From TransitionUtils.h
+    _effectTransitionStartTimeMs = 0;
+
     _balls = nullptr;
     _accel = nullptr;
     _strip = nullptr;
-    setParameters(BouncyPreset); // 构造时加载默认预设
+    // The actual initialization of hardware (accelerometer) and strip
+    // is handled in Begin(). Ball allocation (initBalls) is also called in Begin()
+    // or when parameters change.
 }
 
 GravityBallsEffect::~GravityBallsEffect()
@@ -50,81 +59,127 @@ GravityBallsEffect::~GravityBallsEffect()
 
 void GravityBallsEffect::setParameters(const Parameters &params)
 {
-    bool numBallsChanged = (_params.numBalls != params.numBalls);
-    _params = params;
-    // 如果小球数量改变，需要重新分配内存并初始化
-    if (numBallsChanged && _strip != nullptr)
-    {
-        initBalls();
+    DEBUG_PRINTLN("GravityBallsEffect::setParameters(const Parameters&) called.");
+
+    // Capture the currently active parameters as the starting point for the transition.
+    _oldParams = _activeParams;
+
+    // Copy incoming params to a mutable structure to potentially adjust numBalls before full assignment.
+    Parameters newTarget = params;
+
+    // Handle numBalls change immediately as it affects memory allocation.
+    if (newTarget.numBalls != _activeParams.numBalls) {
+        DEBUG_PRINTF("GravityBalls: numBalls changing from %d to %d\n", _activeParams.numBalls, newTarget.numBalls);
+        // Set _targetParams.numBalls specifically for initBalls, as initBalls uses _targetParams.
+        _targetParams.numBalls = newTarget.numBalls;
+        initBalls(); // Re-initialize balls with _targetParams.numBalls.
+
+        // Reflect the change in numBalls immediately in active and old params to avoid interpolation of numBalls.
+        _activeParams.numBalls = _targetParams.numBalls;
+        _oldParams.numBalls = _targetParams.numBalls;
     }
+
+    // Assign the full set of target parameters.
+    _targetParams = newTarget;
+
+    // Start the transition for other parameters.
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+
+    DEBUG_PRINTLN("GravityBallsEffect transition started.");
 }
 
 // ***** 新增的重载 setParameters(json) 方法 *****
 void GravityBallsEffect::setParameters(const char* jsonParams) {
+    DEBUG_PRINTLN("GravityBallsEffect::setParameters(json) called.");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
-        DEBUG_PRINTLN("GravityBallsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTF("GravityBallsEffect::setParameters failed to parse JSON: %s\n", error.c_str());
         return;
     }
 
-    // 对于小球数量的改变，需要特别处理，因为它涉及到内存重新分配
-    if (doc["numBalls"].is<uint8_t>()) {
-        // 先将JSON中的值转换为期望的类型，再进行比较
-        uint8_t newNumBalls = doc["numBalls"].as<uint8_t>();
-        
-        if (newNumBalls != _params.numBalls) {
-            _params.numBalls = newNumBalls;
-            if (_strip != nullptr) { // 确保已经Begin
-                initBalls(); // initBalls会使用更新后的_params.numBalls
-                DEBUG_PRINTF("GravityBalls: Number of balls changed to %d\n", _params.numBalls);
-            }
+    // Start with a copy of the current target (if transitioning) or active parameters.
+    Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
+    bool numBallsFromJsonChanged = false;
+
+    // Check and update numBalls first if present in JSON.
+    if (doc.containsKey("numBalls")) {
+        uint8_t jsonNumBalls = doc["numBalls"].as<uint8_t>();
+        if (jsonNumBalls != newParams.numBalls) {
+            newParams.numBalls = jsonNumBalls; // Update numBalls in our temporary newParams struct
+            numBallsFromJsonChanged = true;
         }
     }
 
-    // 更新其他参数
-    _params.gravityScale = doc["gravityScale"] | _params.gravityScale;
-    _params.dampingFactor = doc["dampingFactor"] | _params.dampingFactor;
-    _params.sensorDeadZone = doc["sensorDeadZone"] | _params.sensorDeadZone;
-    _params.restitution = doc["restitution"] | _params.restitution;
-    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
-    _params.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"] | _params.brightnessCyclePeriodS;
-    _params.minBrightnessScale = doc["minBrightnessScale"] | _params.minBrightnessScale;
-    _params.maxBrightnessScale = doc["maxBrightnessScale"] | _params.maxBrightnessScale;
-    _params.colorCyclePeriodS = doc["colorCyclePeriodS"] | _params.colorCyclePeriodS;
-    _params.ballColorSaturation = doc["ballColorSaturation"] | _params.ballColorSaturation;
-    
-    // 如果JSON中包含prePara字段，则更新它
-    if (doc["prePara"].is<String>()) {
-        const char* newPrePara = doc["prePara"].as<String>().c_str();
-        if (strcmp(newPrePara, "Bouncy") == 0) {
-            _params.prePara = BouncyPreset.prePara;
-        } else if (strcmp(newPrePara, "Plasma") == 0) {
-            _params.prePara = PlasmaPreset.prePara;
-        }
+    // Update other parameters from JSON if they exist.
+    if(doc.containsKey("gravityScale")) newParams.gravityScale = doc["gravityScale"];
+    if(doc.containsKey("dampingFactor")) newParams.dampingFactor = doc["dampingFactor"];
+    if(doc.containsKey("sensorDeadZone")) newParams.sensorDeadZone = doc["sensorDeadZone"];
+    if(doc.containsKey("restitution")) newParams.restitution = doc["restitution"];
+    if(doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"]; // uint8_t
+    if(doc.containsKey("brightnessCyclePeriodS")) newParams.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"];
+    if(doc.containsKey("minBrightnessScale")) newParams.minBrightnessScale = doc["minBrightnessScale"];
+    if(doc.containsKey("maxBrightnessScale")) newParams.maxBrightnessScale = doc["maxBrightnessScale"];
+    if(doc.containsKey("colorCyclePeriodS")) newParams.colorCyclePeriodS = doc["colorCyclePeriodS"];
+    if(doc.containsKey("ballColorSaturation")) newParams.ballColorSaturation = doc["ballColorSaturation"];
+
+    if (doc.containsKey("prePara")) {
+        const char* presetStr = doc["prePara"];
+        if (strcmp(presetStr, BouncyPreset.prePara) == 0) newParams.prePara = BouncyPreset.prePara;
+        else if (strcmp(presetStr, PlasmaPreset.prePara) == 0) newParams.prePara = PlasmaPreset.prePara;
+        // else: keep newParams.prePara as it was (from _targetParams or _activeParams)
     }
     
-    DEBUG_PRINTLN("GravityBallsEffect parameters updated via JSON.");
+    // Now, set up the transition using the fully prepared newParams.
+    _oldParams = _activeParams; // Capture current visual state as 'old'.
+    _targetParams = newParams;  // This is our new target state.
+
+    // If numBalls changed, it needs immediate structural update.
+    if (numBallsFromJsonChanged) {
+        DEBUG_PRINTF("GravityBalls: numBalls changing via JSON from %d to %d\n", _oldParams.numBalls, _targetParams.numBalls);
+        // initBalls() uses _targetParams.numBalls for allocation.
+        initBalls();
+        // Reflect the change in numBalls immediately in active and old params.
+        _activeParams.numBalls = _targetParams.numBalls;
+        _oldParams.numBalls = _targetParams.numBalls;
+    }
+    
+    // Start/update the transition for all other (interpolatable) parameters.
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+
+    DEBUG_PRINTLN("GravityBallsEffect transition started from JSON.");
 }
 
 void GravityBallsEffect::setPreset(const char* presetName) {
+    DEBUG_PRINTF("GravityBallsEffect::setPreset called with: %s\n", presetName);
     if (strcmp(presetName, "next") == 0) {
-        // 使用prePara字段来判断当前预设
-        if (strcmp(_params.prePara, "Bouncy") == 0) {
-            setParameters(PlasmaPreset);
-            DEBUG_PRINTLN("Switched to PlasmaPreset");
-        } else {
-            setParameters(BouncyPreset);
-            DEBUG_PRINTLN("Switched to BouncyPreset");
+        // Determine the current preset based on target if transitioning, otherwise active.
+        const char* currentEffectivePresetName = _effectInTransition ? _targetParams.prePara : _activeParams.prePara;
+
+        // Fallback if prePara is somehow null (e.g., if not set initially).
+        if (currentEffectivePresetName == nullptr) {
+            currentEffectivePresetName = BouncyPreset.prePara;
         }
-    } else if (strcmp(presetName, "Bouncy") == 0) {
-        setParameters(BouncyPreset);
-        DEBUG_PRINTLN("Switched to BouncyPreset");
-    } else if (strcmp(presetName, "Plasma") == 0) {
-        setParameters(PlasmaPreset);
-        DEBUG_PRINTLN("Switched to PlasmaPreset");
+
+        if (strcmp(currentEffectivePresetName, BouncyPreset.prePara) == 0) {
+            setParameters(PlasmaPreset); // This will trigger a transition.
+            DEBUG_PRINTLN("Switching to PlasmaPreset via 'next'");
+        } else {
+            setParameters(BouncyPreset); // This will trigger a transition.
+            DEBUG_PRINTLN("Switching to BouncyPreset via 'next'");
+        }
+    } else if (strcmp(presetName, BouncyPreset.prePara) == 0) {
+        setParameters(BouncyPreset); // Triggers transition.
+        DEBUG_PRINTLN("Setting BouncyPreset");
+    } else if (strcmp(presetName, PlasmaPreset.prePara) == 0) {
+        setParameters(PlasmaPreset); // Triggers transition.
+        DEBUG_PRINTLN("Setting PlasmaPreset");
     } else {
-        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
+        DEBUG_PRINTF("Unknown preset name in GravityBallsEffect::setPreset: %s\n", presetName);
     }
 }
 
@@ -134,12 +189,13 @@ void GravityBallsEffect::initBalls()
     {
         delete[] _balls;
     }
-    _balls = new Ball[_params.numBalls];
+    // Allocate based on _targetParams.numBalls as this function is called when target changes.
+    _balls = new Ball[_targetParams.numBalls];
 
     float ballRadius = 0.5f;
     float minSeparationDistSq = (2 * ballRadius) * (2 * ballRadius);
 
-    for (int i = 0; i < _params.numBalls; ++i)
+    for (int i = 0; i < _targetParams.numBalls; ++i)
     {
         bool positionOK;
         do
@@ -162,9 +218,10 @@ void GravityBallsEffect::initBalls()
         _balls[i].vx = 0;
         _balls[i].vy = 0;
         _balls[i].brightnessPhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-        _balls[i].brightnessFactor = _params.minBrightnessScale;
+        // Initialize with target parameters
+        _balls[i].brightnessFactor = _targetParams.minBrightnessScale;
         _balls[i].huePhaseOffset = (random(0, 10000) / 10000.0f) * 2.0f * PI;
-        _balls[i].hue = fmod(((0.0f / 1000.0f * 2.0f * PI / _params.colorCyclePeriodS) + _balls[i].huePhaseOffset) / (2.0f * PI), 1.0f);
+        _balls[i].hue = fmod(((0.0f / 1000.0f * 2.0f * PI / _targetParams.colorCyclePeriodS) + _balls[i].huePhaseOffset) / (2.0f * PI), 1.0f);
         if (_balls[i].hue < 0)
             _balls[i].hue += 1.0f;
     }
@@ -189,6 +246,32 @@ int GravityBallsEffect::mapCoordinatesToIndex(int x, int y) {
 
 void GravityBallsEffect::Update()
 {
+    if (_effectInTransition) {
+        unsigned long currentTimeMs = millis();
+        unsigned long elapsedTime = currentTimeMs - _effectTransitionStartTimeMs;
+        float t = static_cast<float>(elapsedTime) / _effectTransitionDurationMs;
+        t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t; // Clamp t
+
+        // Interpolate parameters (numBalls is handled separately and changes instantly)
+        _activeParams.gravityScale = lerp(_oldParams.gravityScale, _targetParams.gravityScale, t);
+        _activeParams.dampingFactor = lerp(_oldParams.dampingFactor, _targetParams.dampingFactor, t);
+        _activeParams.sensorDeadZone = lerp(_oldParams.sensorDeadZone, _targetParams.sensorDeadZone, t);
+        _activeParams.restitution = lerp(_oldParams.restitution, _targetParams.restitution, t);
+        _activeParams.baseBrightness = static_cast<uint8_t>(lerp(static_cast<int>(_oldParams.baseBrightness), static_cast<int>(_targetParams.baseBrightness), t));
+        _activeParams.brightnessCyclePeriodS = lerp(_oldParams.brightnessCyclePeriodS, _targetParams.brightnessCyclePeriodS, t);
+        _activeParams.minBrightnessScale = lerp(_oldParams.minBrightnessScale, _targetParams.minBrightnessScale, t);
+        _activeParams.maxBrightnessScale = lerp(_oldParams.maxBrightnessScale, _targetParams.maxBrightnessScale, t);
+        _activeParams.colorCyclePeriodS = lerp(_oldParams.colorCyclePeriodS, _targetParams.colorCyclePeriodS, t);
+        _activeParams.ballColorSaturation = lerp(_oldParams.ballColorSaturation, _targetParams.ballColorSaturation, t);
+        // _activeParams.prePara changes with _targetParams at end of transition
+
+        if (t >= 1.0f) {
+            _effectInTransition = false;
+            _activeParams = _targetParams; // Ensure exact match at the end
+            DEBUG_PRINTLN("GravityBallsEffect transition complete.");
+        }
+    }
+
     if (_strip == nullptr || _accel == nullptr || _balls == nullptr)
         return;
 
@@ -204,26 +287,26 @@ void GravityBallsEffect::Update()
     float rawAx = event.acceleration.x;
     float rawAz = event.acceleration.z;
 
-    float ax_eff = (abs(rawAx) < _params.sensorDeadZone) ? 0 : rawAx;
-    float az_eff = (abs(rawAz) < _params.sensorDeadZone) ? 0 : rawAz;
+    float ax_eff = (abs(rawAx) < _activeParams.sensorDeadZone) ? 0 : rawAx;
+    float az_eff = (abs(rawAz) < _activeParams.sensorDeadZone) ? 0 : rawAz;
 
-    float forceX = -ax_eff * _params.gravityScale;
-    float forceY = -az_eff * _params.gravityScale;
+    float forceX = -ax_eff * _activeParams.gravityScale;
+    float forceY = -az_eff * _activeParams.gravityScale;
 
-    // Update balls using parameters from _params
-    for (int i = 0; i < _params.numBalls; ++i)
+    // Update balls using parameters from _activeParams
+    for (int i = 0; i < _activeParams.numBalls; ++i)
     {
-        float sinWaveBright = (sin((2.0f * PI / _params.brightnessCyclePeriodS * totalTimeSeconds) + _balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f;
-        _balls[i].brightnessFactor = _params.minBrightnessScale + sinWaveBright * (_params.maxBrightnessScale - _params.minBrightnessScale);
-        float rawHueAngle = (2.0f * PI / _params.colorCyclePeriodS * totalTimeSeconds) + _balls[i].huePhaseOffset;
+        float sinWaveBright = (sin((2.0f * PI / _activeParams.brightnessCyclePeriodS * totalTimeSeconds) + _balls[i].brightnessPhaseOffset) + 1.0f) / 2.0f;
+        _balls[i].brightnessFactor = _activeParams.minBrightnessScale + sinWaveBright * (_activeParams.maxBrightnessScale - _activeParams.minBrightnessScale);
+        float rawHueAngle = (2.0f * PI / _activeParams.colorCyclePeriodS * totalTimeSeconds) + _balls[i].huePhaseOffset;
         _balls[i].hue = fmod(rawHueAngle / (2.0f * PI), 1.0f);
         if (_balls[i].hue < 0.0f)
             _balls[i].hue += 1.0f;
 
         _balls[i].vx += forceX * dt;
         _balls[i].vy += forceY * dt;
-        _balls[i].vx *= _params.dampingFactor;
-        _balls[i].vy *= _params.dampingFactor;
+        _balls[i].vx *= _activeParams.dampingFactor;
+        _balls[i].vy *= _activeParams.dampingFactor;
         _balls[i].x += _balls[i].vx * dt;
         _balls[i].y += _balls[i].vy * dt;
 
@@ -231,31 +314,31 @@ void GravityBallsEffect::Update()
         if (_balls[i].x < ballRadius)
         {
             _balls[i].x = ballRadius;
-            _balls[i].vx *= -_params.restitution;
+            _balls[i].vx *= -_activeParams.restitution;
         }
         else if (_balls[i].x > _matrixWidth - ballRadius)
         {
             _balls[i].x = _matrixWidth - ballRadius;
-            _balls[i].vx *= -_params.restitution;
+            _balls[i].vx *= -_activeParams.restitution;
         }
         if (_balls[i].y < ballRadius)
         {
             _balls[i].y = ballRadius;
-            _balls[i].vy *= -_params.restitution;
+            _balls[i].vy *= -_activeParams.restitution;
         }
         else if (_balls[i].y > _matrixHeight - ballRadius)
         {
             _balls[i].y = _matrixHeight - ballRadius;
-            _balls[i].vy *= -_params.restitution;
+            _balls[i].vy *= -_activeParams.restitution;
         }
     }
 
     float ballRadius = 0.5f;
     float minSeparationDistSq = (2 * ballRadius) * (2 * ballRadius);
     float invBallMass = 1.0f;
-    for (int i = 0; i < _params.numBalls; ++i)
+    for (int i = 0; i < _activeParams.numBalls; ++i)
     {
-        for (int j = i + 1; j < _params.numBalls; ++j)
+        for (int j = i + 1; j < _activeParams.numBalls; ++j)
         {
             float dx = _balls[j].x - _balls[i].x;
             float dy = _balls[j].y - _balls[i].y;
@@ -270,7 +353,7 @@ void GravityBallsEffect::Update()
                 float velAlongNormal = rvx * nx + rvy * ny;
                 if (velAlongNormal < 0)
                 {
-                    float impulseMagnitude = -(1.0f + _params.restitution) * velAlongNormal / (2.0f * invBallMass);
+                    float impulseMagnitude = -(1.0f + _activeParams.restitution) * velAlongNormal / (2.0f * invBallMass);
                     _balls[i].vx -= impulseMagnitude * nx * invBallMass;
                     _balls[i].vy -= impulseMagnitude * ny * invBallMass;
                     _balls[j].vx += impulseMagnitude * nx * invBallMass;
@@ -286,7 +369,7 @@ void GravityBallsEffect::Update()
     }
 
     _strip->ClearTo(RgbColor(0, 0, 0));
-    for (int i = 0; i < _params.numBalls; ++i)
+    for (int i = 0; i < _activeParams.numBalls; ++i)
     {
         int pixelX = round(_balls[i].x - ballRadius);
         int pixelY = round(_balls[i].y - ballRadius);
@@ -295,7 +378,7 @@ void GravityBallsEffect::Update()
         int ledIndex = mapCoordinatesToIndex(pixelX, pixelY);
         if (ledIndex >= 0 && ledIndex < _numLeds)
         {
-            HsbColor hsbColor(_balls[i].hue, _params.ballColorSaturation, _balls[i].brightnessFactor * (_params.baseBrightness / 255.0f));
+            HsbColor hsbColor(_balls[i].hue, _activeParams.ballColorSaturation, _balls[i].brightnessFactor * (_activeParams.baseBrightness / 255.0f));
             _strip->SetPixelColor(ledIndex, hsbColor);
         }
     }

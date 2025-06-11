@@ -6,7 +6,6 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <math.h>
-#include "../../include/TransitionUtils.h"
 
 class GravityBallsEffect
 {
@@ -61,18 +60,12 @@ private:
     uint16_t _numLeds = 0;
     uint8_t _matrixWidth = 0;
     uint8_t _matrixHeight = 0;
-    
-    Ball* _balls = nullptr;
-    
-    unsigned long _lastUpdateTime = 0;
-    
-    Parameters _activeParams;
-    Parameters _targetParams;
-    Parameters _oldParams;
 
-    bool _effectInTransition;
-    unsigned long _effectTransitionStartTimeMs;
-    unsigned long _effectTransitionDurationMs; // 使用参数结构体存储所有配置
+    Ball* _balls = nullptr;
+
+    unsigned long _lastUpdateTime = 0;
+
+    Parameters _params; // 使用参数结构体存储所有配置
 
     void initBalls();
 };
@@ -84,7 +77,7 @@ bool GravityBallsEffect::Begin(T_NeoPixelBus& strip, uint8_t matrixWidth, uint8_
     _numLeds = strip.PixelCount();
     _matrixWidth = matrixWidth;
     _matrixHeight = matrixHeight;
-    
+
     // ADXL345的初始化现在可以硬编码引脚，或者也放入参数结构体
     // 为了简单，我们先硬编码
     if (!_accel) {

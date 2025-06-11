@@ -34,9 +34,15 @@ const CodeRainEffect::Parameters CodeRainEffect::FastGlitchPreset = {
 
 
 CodeRainEffect::CodeRainEffect() {
+    _activeParams = ClassicMatrixPreset;
+    _targetParams = ClassicMatrixPreset;
+    _oldParams = ClassicMatrixPreset;
+    _effectInTransition = false;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+    _effectTransitionStartTimeMs = 0;
+
     _codeStreams = nullptr;
     _strip = nullptr;
-    setParameters(ClassicMatrixPreset); // 构造时加载默认预设
 }
 
 CodeRainEffect::~CodeRainEffect() {
@@ -46,73 +52,128 @@ CodeRainEffect::~CodeRainEffect() {
 }
 
 void CodeRainEffect::setParameters(const Parameters& params) {
-    _params = params;
-    // CodeRainEffect 的流数量总是等于矩阵宽度，所以不需要重新分配
+    DEBUG_PRINTLN("CodeRainEffect::setParameters(const Parameters&) called.");
+    if (_effectInTransition) {
+        // If already transitioning, current _activeParams is the most up-to-date "old" state
+        _oldParams = _activeParams;
+    } else {
+        // If not in transition, current _activeParams is the true old state
+        _oldParams = _activeParams;
+    }
+    _targetParams = params;
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    // Use the default transition duration, or a specific one if params include it
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+
+    // Logic for _codeStreams initialization or reset, using _targetParams
+    // This part is important if parameters affecting stream structure/count change.
+    // For CodeRain, stream count is fixed to _matrixWidth.
+    // Resetting cooldowns might be desirable when parameters change.
     if (_codeStreams == nullptr && _matrixWidth > 0) {
         _codeStreams = new CodeStream[_matrixWidth];
         for (uint8_t i = 0; i < _matrixWidth; ++i) {
             _codeStreams[i].isActive = false;
-            // 初始化冷却时间，确保第一次能生成
-            _codeStreams[i].lastActivityTimeMs = millis() - random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
-            _codeStreams[i].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+            // Initialize cooldowns to allow immediate spawning if probability allows
+            _codeStreams[i].lastActivityTimeMs = millis() - random(_targetParams.minSpawnCooldownMs, _targetParams.maxSpawnCooldownMs);
+            _codeStreams[i].spawnCooldownMs = random(_targetParams.minSpawnCooldownMs, _targetParams.maxSpawnCooldownMs);
         }
-    } else if (_codeStreams != nullptr) { // If params are changed at runtime
-        for (uint8_t i = 0; i < _matrixWidth; ++i) { // Reset cooldowns based on new params
-            _codeStreams[i].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+    } else if (_codeStreams != nullptr) {
+        // If parameters that affect stream behavior are changed, reset relevant stream properties
+        for (uint8_t i = 0; i < _matrixWidth; ++i) {
+            // Example: Reset spawn cooldown based on new target parameters
+            _codeStreams[i].spawnCooldownMs = random(_targetParams.minSpawnCooldownMs, _targetParams.maxSpawnCooldownMs);
+            // Potentially reset lastActivityTimeMs to force re-evaluation against new cooldown
+            _codeStreams[i].lastActivityTimeMs = millis() - random(0, _codeStreams[i].spawnCooldownMs);
         }
     }
+    DEBUG_PRINTLN("CodeRainEffect transition started.");
 }
 
 void CodeRainEffect::setParameters(const char* jsonParams) {
-    JsonDocument doc;
+    DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called.");
+    JsonDocument doc; // Using ArduinoJson v6 style, adjust if v5
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
-        DEBUG_PRINTLN("CodeRainEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTF("CodeRainEffect::setParameters failed to parse JSON: %s\n", error.c_str());
         return;
     }
-    _params.minSpeed = doc["minSpeed"] | _params.minSpeed;
-    _params.maxSpeed = doc["maxSpeed"] | _params.maxSpeed;
-    _params.minStreamLength = doc["minStreamLength"] | _params.minStreamLength;
-    _params.maxStreamLength = doc["maxStreamLength"] | _params.maxStreamLength;
-    _params.spawnProbability = doc["spawnProbability"] | _params.spawnProbability;
-    _params.minSpawnCooldownMs = doc["minSpawnCooldownMs"] | _params.minSpawnCooldownMs;    
-    _params.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"] | _params.maxSpawnCooldownMs;
-    _params.baseHue = doc["baseHue"] | _params.baseHue;
-    _params.hueVariation = doc["hueVariation"] | _params.hueVariation;
-    _params.saturation = doc["saturation"] | _params.saturation;
-    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
+
+    // Start with a copy of the current target to allow partial updates on an ongoing target,
+    // or active if no transition is happening.
+    Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
+
+    // Update fields from JSON if they exist
+    if (doc.containsKey("minSpeed")) newParams.minSpeed = doc["minSpeed"];
+    if (doc.containsKey("maxSpeed")) newParams.maxSpeed = doc["maxSpeed"];
+    if (doc.containsKey("minStreamLength")) newParams.minStreamLength = doc["minStreamLength"];
+    if (doc.containsKey("maxStreamLength")) newParams.maxStreamLength = doc["maxStreamLength"];
+    if (doc.containsKey("spawnProbability")) newParams.spawnProbability = doc["spawnProbability"];
+    if (doc.containsKey("minSpawnCooldownMs")) newParams.minSpawnCooldownMs = doc["minSpawnCooldownMs"];
+    if (doc.containsKey("maxSpawnCooldownMs")) newParams.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"];
+    if (doc.containsKey("baseHue")) newParams.baseHue = doc["baseHue"];
+    if (doc.containsKey("hueVariation")) newParams.hueVariation = doc["hueVariation"];
+    if (doc.containsKey("saturation")) newParams.saturation = doc["saturation"];
+    if (doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"];
     
-    // 如果JSON中包含prePara字段，则更新它
-    if (doc["prePara"].is<String>()) {
-        const char* newPrePara = doc["prePara"].as<String>().c_str();
-        if (strcmp(newPrePara, "ClassicMatrix") == 0) {
-            _params.prePara = ClassicMatrixPreset.prePara;
-        } else if (strcmp(newPrePara, "FastGlitch") == 0) {
-            _params.prePara = FastGlitchPreset.prePara;
+    if (doc.containsKey("prePara")) {
+        const char* presetStr = doc["prePara"];
+        // This simple assignment works if presetStr is guaranteed to be long-lived,
+        // e.g., points to a global literal like ClassicMatrixPreset.prePara.
+        // If it can be an arbitrary string from JSON, it might need copying.
+        // For presets, it's typical to match against known ones.
+        if (strcmp(presetStr, ClassicMatrixPreset.prePara) == 0) newParams.prePara = ClassicMatrixPreset.prePara;
+        else if (strcmp(presetStr, FastGlitchPreset.prePara) == 0) newParams.prePara = FastGlitchPreset.prePara;
+        // else, if not matching a known preset, consider ignoring or logging. For now, it would keep the existing value.
+    }
+
+    // Now trigger the transition with the potentially modified newParams
+    if (_effectInTransition) {
+        _oldParams = _activeParams; // Capture current interpolated state as old
+    } else {
+        _oldParams = _activeParams; // Or current stable state if not transitioning
+    }
+    _targetParams = newParams; // Assign the fully prepared newParams
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS; // Reset duration
+    
+    // Reset stream cooldowns based on new target parameters
+    if (_codeStreams != nullptr) {
+        for (uint8_t i = 0; i < _matrixWidth; ++i) {
+            _codeStreams[i].spawnCooldownMs = random(_targetParams.minSpawnCooldownMs, _targetParams.maxSpawnCooldownMs);
+            _codeStreams[i].lastActivityTimeMs = millis() - random(0, _codeStreams[i].spawnCooldownMs);
         }
     }
-    
-    DEBUG_PRINTLN("CodeRainEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("CodeRainEffect transition started from JSON update.");
 }
 
 void CodeRainEffect::setPreset(const char* presetName) {
+    DEBUG_PRINTF("CodeRainEffect::setPreset called with: %s\n", presetName);
     if (strcmp(presetName, "next") == 0) {
-        // 使用prePara字段来判断当前预设
-        if (strcmp(_params.prePara, "ClassicMatrix") == 0) {
-            setParameters(FastGlitchPreset);
-            DEBUG_PRINTLN("Switched to FastGlitchPreset");
-        } else {
-            setParameters(ClassicMatrixPreset);
-            DEBUG_PRINTLN("Switched to ClassicMatrixPreset");
+        // Determine the current preset based on target if transitioning, otherwise active
+        const char* currentEffectivePresetName = _effectInTransition ? _targetParams.prePara : _activeParams.prePara;
+
+        // Fallback if prePara is somehow null or not set
+        if (currentEffectivePresetName == nullptr) {
+            currentEffectivePresetName = ClassicMatrixPreset.prePara;
         }
-    } else if (strcmp(presetName, "ClassicMatrix") == 0) {
-        setParameters(ClassicMatrixPreset);
-        DEBUG_PRINTLN("Switched to ClassicMatrixPreset");
-    } else if (strcmp(presetName, "FastGlitch") == 0) {
-        setParameters(FastGlitchPreset);
-        DEBUG_PRINTLN("Switched to FastGlitchPreset");
+
+        if (strcmp(currentEffectivePresetName, ClassicMatrixPreset.prePara) == 0) {
+            setParameters(FastGlitchPreset); // This will trigger a transition
+            DEBUG_PRINTLN("Switching to FastGlitchPreset via 'next'");
+        } else {
+            setParameters(ClassicMatrixPreset); // This will trigger a transition
+            DEBUG_PRINTLN("Switching to ClassicMatrixPreset via 'next'");
+        }
+    } else if (strcmp(presetName, ClassicMatrixPreset.prePara) == 0) {
+        setParameters(ClassicMatrixPreset); // Triggers transition
+        DEBUG_PRINTLN("Setting ClassicMatrixPreset");
+    } else if (strcmp(presetName, FastGlitchPreset.prePara) == 0) {
+        setParameters(FastGlitchPreset); // Triggers transition
+        DEBUG_PRINTLN("Setting FastGlitchPreset");
     } else {
-        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
+        DEBUG_PRINTF("Unknown preset name in CodeRainEffect::setPreset: %s\n", presetName);
     }
 }
 
@@ -134,6 +195,35 @@ int CodeRainEffect::mapCoordinatesToIndex(int x, int y) {
 }
 
 void CodeRainEffect::Update() {
+    if (_effectInTransition) {
+        unsigned long currentTimeMs = millis();
+        unsigned long elapsedTime = currentTimeMs - _effectTransitionStartTimeMs;
+        float t = static_cast<float>(elapsedTime) / _effectTransitionDurationMs;
+        t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t; // Clamp t
+
+        // Interpolate parameters
+        _activeParams.minSpeed = lerp(_oldParams.minSpeed, _targetParams.minSpeed, t);
+        _activeParams.maxSpeed = lerp(_oldParams.maxSpeed, _targetParams.maxSpeed, t);
+        _activeParams.minStreamLength = lerp(_oldParams.minStreamLength, _targetParams.minStreamLength, t);
+        _activeParams.maxStreamLength = lerp(_oldParams.maxStreamLength, _targetParams.maxStreamLength, t);
+        _activeParams.spawnProbability = lerp(_oldParams.spawnProbability, _targetParams.spawnProbability, t);
+        // For unsigned long, ensure lerp result is cast back if necessary and fits
+        _activeParams.minSpawnCooldownMs = static_cast<unsigned long>(lerp(static_cast<int>(_oldParams.minSpawnCooldownMs), static_cast<int>(_targetParams.minSpawnCooldownMs), t));
+        _activeParams.maxSpawnCooldownMs = static_cast<unsigned long>(lerp(static_cast<int>(_oldParams.maxSpawnCooldownMs), static_cast<int>(_targetParams.maxSpawnCooldownMs), t));
+        _activeParams.baseHue = lerp(_oldParams.baseHue, _targetParams.baseHue, t);
+        _activeParams.hueVariation = lerp(_oldParams.hueVariation, _targetParams.hueVariation, t);
+        _activeParams.saturation = lerp(_oldParams.saturation, _targetParams.saturation, t);
+        _activeParams.baseBrightness = lerp(_oldParams.baseBrightness, _targetParams.baseBrightness, t);
+        // _activeParams.prePara is not interpolated; it changes instantly when _targetParams is set,
+        // or more accurately, _activeParams.prePara will reflect _targetParams.prePara once transition ends.
+
+        if (t >= 1.0f) {
+            _effectInTransition = false;
+            _activeParams = _targetParams; // Ensure exact match at the end
+            DEBUG_PRINTLN("CodeRainEffect transition complete.");
+        }
+    }
+
     if (_strip == nullptr || _codeStreams == nullptr) return;
 
     unsigned long currentTimeMs = millis();
@@ -152,16 +242,16 @@ void CodeRainEffect::Update() {
             if (_codeStreams[x].currentY - _codeStreams[x].length >= _matrixHeight) {
                 _codeStreams[x].isActive = false;
                 _codeStreams[x].lastActivityTimeMs = currentTimeMs;
-                _codeStreams[x].spawnCooldownMs = random(_params.minSpawnCooldownMs, _params.maxSpawnCooldownMs);
+                _codeStreams[x].spawnCooldownMs = random(_activeParams.minSpawnCooldownMs, _activeParams.maxSpawnCooldownMs);
             }
         } else {
             if (currentTimeMs - _codeStreams[x].lastActivityTimeMs >= _codeStreams[x].spawnCooldownMs) {
-                if (random(1000) / 1000.0f < _params.spawnProbability) {
+                if (random(1000) / 1000.0f < _activeParams.spawnProbability) {
                     _codeStreams[x].isActive = true;
                     _codeStreams[x].currentY = -random(0, _matrixHeight * 2);
-                    _codeStreams[x].speed = random(_params.minSpeed * 100, _params.maxSpeed * 100) / 100.0f;
-                    _codeStreams[x].length = random(_params.minStreamLength, _params.maxStreamLength + 1);
-                    _codeStreams[x].hue = _params.baseHue + (random(-_params.hueVariation * 100, _params.hueVariation * 100) / 100.0f);
+                    _codeStreams[x].speed = random(_activeParams.minSpeed * 100, _activeParams.maxSpeed * 100) / 100.0f;
+                    _codeStreams[x].length = random(_activeParams.minStreamLength, _activeParams.maxStreamLength + 1);
+                    _codeStreams[x].hue = _activeParams.baseHue + (random(-_activeParams.hueVariation * 100, _activeParams.hueVariation * 100) / 100.0f);
                     if (_codeStreams[x].hue < 0.0f) _codeStreams[x].hue += 1.0f;
                     if (_codeStreams[x].hue > 1.0f) _codeStreams[x].hue -= 1.0f;
                     _codeStreams[x].lastActivityTimeMs = currentTimeMs;
@@ -187,7 +277,7 @@ void CodeRainEffect::Update() {
                         brightnessFactor *= (random(70, 101) / 100.0f);
                     }
                     
-                    HsbColor hsbColor(_codeStreams[x].hue, _params.saturation, brightnessFactor * _params.baseBrightness);
+                    HsbColor hsbColor(_codeStreams[x].hue, _activeParams.saturation, brightnessFactor * _activeParams.baseBrightness);
                     int ledIndex = mapCoordinatesToIndex(x, charY);
 
                     if (ledIndex >= 0 && ledIndex < _numLeds) {

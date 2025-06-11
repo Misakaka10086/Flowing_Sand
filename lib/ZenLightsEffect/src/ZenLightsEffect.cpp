@@ -32,10 +32,15 @@ const ZenLightsEffect::Parameters ZenLightsEffect::FireflyPreset = {
 
 ZenLightsEffect::ZenLightsEffect()
 {
+    _activeParams = ZenPreset;
+    _targetParams = ZenPreset;
+    _oldParams = ZenPreset;
+    _effectInTransition = false;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+    _effectTransitionStartTimeMs = 0;
+
     _ledStates = nullptr;
     _strip = nullptr;
-    // 构造时加载默认预设
-    setParameters(ZenPreset);
 }
 
 ZenLightsEffect::~ZenLightsEffect()
@@ -49,24 +54,58 @@ ZenLightsEffect::~ZenLightsEffect()
 // ***** 4. 实现新的 setParameters 方法 *****
 void ZenLightsEffect::setParameters(const Parameters &params)
 {
-    _params = params;
+    DEBUG_PRINTLN("ZenLightsEffect::setParameters(const Parameters&) called.");
+    _oldParams = _activeParams;
+    _targetParams = params;
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+    DEBUG_PRINTLN("ZenLightsEffect transition started.");
 }
 
 void ZenLightsEffect::setParameters(const char *jsonParams)
 {
+    DEBUG_PRINTLN("ZenLightsEffect::setParameters(json) called.");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
-    if (error)
-    {
-        DEBUG_PRINTLN("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+    if (error) {
+        DEBUG_PRINTF("ZenLightsEffect::setParameters failed to parse JSON: %s\n", error.c_str());
         return;
     }
+
+    Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
+
+    if(doc.containsKey("maxActiveLeds")) newParams.maxActiveLeds = doc["maxActiveLeds"];
+    if(doc.containsKey("minDurationMs")) newParams.minDurationMs = doc["minDurationMs"];
+    if(doc.containsKey("maxDurationMs")) newParams.maxDurationMs = doc["maxDurationMs"];
+    if(doc.containsKey("minPeakBrightness")) newParams.minPeakBrightness = doc["minPeakBrightness"];
+    if(doc.containsKey("maxPeakBrightness")) newParams.maxPeakBrightness = doc["maxPeakBrightness"];
+    if(doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"];
+    if(doc.containsKey("hueMin")) newParams.hueMin = doc["hueMin"];
+    if(doc.containsKey("hueMax")) newParams.hueMax = doc["hueMax"];
+    if(doc.containsKey("saturation")) newParams.saturation = doc["saturation"];
+    if(doc.containsKey("spawnIntervalMs")) newParams.spawnIntervalMs = doc["spawnIntervalMs"];
+
+    if (doc.containsKey("prePara")) {
+        const char* presetStr = doc["prePara"];
+        if (strcmp(presetStr, ZenPreset.prePara) == 0) newParams.prePara = ZenPreset.prePara;
+        else if (strcmp(presetStr, FireflyPreset.prePara) == 0) newParams.prePara = FireflyPreset.prePara;
+    }
+
+    _oldParams = _activeParams;
+    _targetParams = newParams;
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+
+    DEBUG_PRINTLN("ZenLightsEffect transition started from JSON.");
+}
 
     // // 对于最大活动灯珠数的改变，需要特别处理，因为它涉及到内存重新分配
     if (doc["maxActiveLeds"].is<int>()) {
         int newMaxActiveLeds = doc["maxActiveLeds"].as<int>();
-        if (newMaxActiveLeds != _params.maxActiveLeds) {
-            _params.maxActiveLeds = newMaxActiveLeds;
+        if (newMaxActiveLeds != _activeParams.maxActiveLeds) {
+            _activeParams.maxActiveLeds = newMaxActiveLeds;
             if (_strip != nullptr) { // 确保已经Begin
                 // 创建新的状态数组
                 LedEffectState* newLedStates = new LedEffectState[_numLeds];
@@ -89,29 +128,29 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
                 
                 // 更新指针
                 _ledStates = newLedStates;
-                DEBUG_PRINTF("ZenLightsEffect: Maximum active LEDs changed to %d\n", _params.maxActiveLeds);
+                DEBUG_PRINTF("ZenLightsEffect: Maximum active LEDs changed to %d\n", _activeParams.maxActiveLeds);
             }
         }
     }
-    // _params.maxActiveLeds = doc["maxActiveLeds"] | _params.maxActiveLeds;
+    // _activeParams.maxActiveLeds = doc["maxActiveLeds"] | _activeParams.maxActiveLeds;
     // 更新其他参数
-    _params.minDurationMs = doc["minDurationMs"] | _params.minDurationMs;
-    _params.maxDurationMs = doc["maxDurationMs"] | _params.maxDurationMs;
-    _params.minPeakBrightness = doc["minPeakBrightness"] | _params.minPeakBrightness;
-    _params.maxPeakBrightness = doc["maxPeakBrightness"] | _params.maxPeakBrightness;
-    _params.baseBrightness = doc["baseBrightness"] | _params.baseBrightness;
-    _params.hueMin = doc["hueMin"] | _params.hueMin;
-    _params.hueMax = doc["hueMax"] | _params.hueMax;
-    _params.saturation = doc["saturation"] | _params.saturation;
-    _params.spawnIntervalMs = doc["spawnIntervalMs"] | _params.spawnIntervalMs;
+    _activeParams.minDurationMs = doc["minDurationMs"] | _activeParams.minDurationMs;
+    _activeParams.maxDurationMs = doc["maxDurationMs"] | _activeParams.maxDurationMs;
+    _activeParams.minPeakBrightness = doc["minPeakBrightness"] | _activeParams.minPeakBrightness;
+    _activeParams.maxPeakBrightness = doc["maxPeakBrightness"] | _activeParams.maxPeakBrightness;
+    _activeParams.baseBrightness = doc["baseBrightness"] | _activeParams.baseBrightness;
+    _activeParams.hueMin = doc["hueMin"] | _activeParams.hueMin;
+    _activeParams.hueMax = doc["hueMax"] | _activeParams.hueMax;
+    _activeParams.saturation = doc["saturation"] | _activeParams.saturation;
+    _activeParams.spawnIntervalMs = doc["spawnIntervalMs"] | _activeParams.spawnIntervalMs;
     
     // 如果JSON中包含prePara字段，则更新它
     if (doc["prePara"].is<String>()) {
         const char* newPrePara = doc["prePara"].as<String>().c_str();
         if (strcmp(newPrePara, "Zen") == 0) {
-            _params.prePara = ZenPreset.prePara;
+            _activeParams.prePara = ZenPreset.prePara;
         } else if (strcmp(newPrePara, "Firefly") == 0) {
-            _params.prePara = FireflyPreset.prePara;
+            _activeParams.prePara = FireflyPreset.prePara;
         }
     }
     
@@ -119,12 +158,24 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
 }
 
 void ZenLightsEffect::setPreset(const char* presetName) {
+    DEBUG_PRINTF("ZenLightsEffect::setPreset called with: %s\n", presetName);
     if (strcmp(presetName, "next") == 0) {
-        // 使用prePara字段来判断当前预设
-        if (strcmp(_params.prePara, "Zen") == 0) {
+        const char* currentEffectivePreset = _effectInTransition ? _targetParams.prePara : _activeParams.prePara;
+        if (currentEffectivePreset == nullptr) currentEffectivePreset = ZenPreset.prePara;
+
+        if (strcmp(currentEffectivePreset, ZenPreset.prePara) == 0) {
             setParameters(FireflyPreset);
-            DEBUG_PRINTLN("Switched to FireflyPreset");
         } else {
+            setParameters(ZenPreset);
+        }
+    } else if (strcmp(presetName, ZenPreset.prePara) == 0) {
+        setParameters(ZenPreset);
+    } else if (strcmp(presetName, FireflyPreset.prePara) == 0) {
+        setParameters(FireflyPreset);
+    } else {
+        DEBUG_PRINTF("Unknown preset name in ZenLightsEffect::setPreset: %s\n", presetName);
+    }
+} else {
             setParameters(ZenPreset);
             DEBUG_PRINTLN("Switched to ZenPreset");
         }
@@ -141,13 +192,37 @@ void ZenLightsEffect::setPreset(const char* presetName) {
 
 void ZenLightsEffect::Update()
 {
+    if (_effectInTransition) {
+        unsigned long currentTimeMs_lerp = millis(); // Use a different name to avoid conflict
+        unsigned long elapsedTime = currentTimeMs_lerp - _effectTransitionStartTimeMs;
+        float t = static_cast<float>(elapsedTime) / _effectTransitionDurationMs;
+        t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t; // Clamp t
+
+        _activeParams.maxActiveLeds = lerp(_oldParams.maxActiveLeds, _targetParams.maxActiveLeds, t);
+        _activeParams.minDurationMs = static_cast<unsigned long>(lerp(static_cast<int>(_oldParams.minDurationMs), static_cast<int>(_targetParams.minDurationMs), t));
+        _activeParams.maxDurationMs = static_cast<unsigned long>(lerp(static_cast<int>(_oldParams.maxDurationMs), static_cast<int>(_targetParams.maxDurationMs), t));
+        _activeParams.minPeakBrightness = lerp(_oldParams.minPeakBrightness, _targetParams.minPeakBrightness, t);
+        _activeParams.maxPeakBrightness = lerp(_oldParams.maxPeakBrightness, _targetParams.maxPeakBrightness, t);
+        _activeParams.baseBrightness = lerp(_oldParams.baseBrightness, _targetParams.baseBrightness, t);
+        _activeParams.hueMin = lerp(_oldParams.hueMin, _targetParams.hueMin, t);
+        _activeParams.hueMax = lerp(_oldParams.hueMax, _targetParams.hueMax, t);
+        _activeParams.saturation = lerp(_oldParams.saturation, _targetParams.saturation, t);
+        _activeParams.spawnIntervalMs = static_cast<unsigned long>(lerp(static_cast<int>(_oldParams.spawnIntervalMs), static_cast<int>(_targetParams.spawnIntervalMs), t));
+
+        if (t >= 1.0f) {
+            _effectInTransition = false;
+            _activeParams = _targetParams; // Ensure exact match at the end
+            DEBUG_PRINTLN("ZenLightsEffect transition complete.");
+        }
+    }
+
     if (_strip == nullptr || _ledStates == nullptr)
         return;
 
     unsigned long currentTimeMs = millis();
 
     // 1. 尝试激活新的灯珠
-    if (currentTimeMs - _lastAttemptTimeMs >= _params.spawnIntervalMs)
+    if (currentTimeMs - _lastAttemptTimeMs >= _activeParams.spawnIntervalMs)
     {
         _lastAttemptTimeMs = currentTimeMs;
         tryActivateNewLed();
@@ -182,7 +257,7 @@ void ZenLightsEffect::Update()
             currentCycleBrightness *= _ledStates[i].peakBrightnessFactor;
             currentCycleBrightness = constrain(currentCycleBrightness, 0.0f, 1.0f);
 
-            HsbColor hsbColor(_ledStates[i].hue, _params.saturation, currentCycleBrightness);
+            HsbColor hsbColor(_ledStates[i].hue, _activeParams.saturation, currentCycleBrightness);
             _strip->SetPixelColor(i, hsbColor);
         }
         else
@@ -226,7 +301,7 @@ int ZenLightsEffect::mapCoordinatesToIndex(int x, int y) {
 
 void ZenLightsEffect::tryActivateNewLed()
 {
-    if (countActiveLeds() >= _params.maxActiveLeds)
+    if (countActiveLeds() >= _activeParams.maxActiveLeds)
     {
         return;
     }
@@ -248,8 +323,8 @@ void ZenLightsEffect::tryActivateNewLed()
     {
         _ledStates[candidateLed].isActive = true;
         _ledStates[candidateLed].startTimeMs = millis();
-        _ledStates[candidateLed].durationMs = random(_params.minDurationMs, _params.maxDurationMs + 1);
-        _ledStates[candidateLed].peakBrightnessFactor = _params.baseBrightness * random(_params.minPeakBrightness * 100, _params.maxPeakBrightness * 100 + 1) / 100.0f;
-        _ledStates[candidateLed].hue = random(_params.hueMin * 1000, _params.hueMax * 1000 + 1) / 1000.0f;
+        _ledStates[candidateLed].durationMs = random(_activeParams.minDurationMs, _activeParams.maxDurationMs + 1);
+        _ledStates[candidateLed].peakBrightnessFactor = _activeParams.baseBrightness * random(_activeParams.minPeakBrightness * 100, _activeParams.maxPeakBrightness * 100 + 1) / 100.0f;
+        _ledStates[candidateLed].hue = random(_activeParams.hueMin * 1000, _activeParams.hueMax * 1000 + 1) / 1000.0f;
     }
 }
