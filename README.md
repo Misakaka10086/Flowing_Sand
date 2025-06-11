@@ -40,18 +40,71 @@ This project is designed to control a strip of 256 NeoPixel LEDs (arranged as 64
 
 *   **Individual Effect Libraries (within `lib/`):**
     *   `CodeRainEffect/`
+        *   Description: Simulates the falling green code effect from 'The Matrix'.
+        *   Parameters: `minSpeed`, `maxSpeed`, `minStreamLength`, `maxStreamLength`, `spawnProbability`, `minSpawnCooldownMs`, `maxSpawnCooldownMs`, `baseHue`, `hueVariation`, `saturation`, `baseBrightness`.
+        *   Presets: `ClassicMatrixPreset`, `FastGlitchPreset`.
     *   `GravityBallsEffect/`
+        *   Description: Simulates balls bouncing within the matrix, optionally influenced by an ADXL345 accelerometer.
+        *   Parameters: `numBalls`, `gravityScale`, `dampingFactor`, `sensorDeadZone`, `restitution`, `baseBrightness`, `brightnessCyclePeriodS`, `minBrightnessScale`, `maxBrightnessScale`, `colorCyclePeriodS`, `ballColorSaturation`.
+        *   Note: Uses ADXL345 accelerometer for gravity input if available.
+        *   Presets: `BouncyPreset`, `PlasmaPreset`.
     *   `LavaLampEffect/`
+        *   Description: Simulates the fluid dynamics of a lava lamp with merging and splitting blobs of color.
+        *   Parameters: `numBlobs`, `threshold`, `baseSpeed`, `baseBrightness`, `baseColor` (string, e.g., "#FF0000"), `hueRange`.
+        *   Presets: `ClassicLavaPreset`, `MercuryPreset`.
     *   `RippleEffect/`
+        *   Description: Creates expanding ripples of color, like water drops.
+        *   Parameters: `maxRipples`, `speed`, `acceleration`, `thickness`, `spawnIntervalS`, `maxRadius`, `randomOrigin`, `saturation`, `baseBrightness`, `sharpness`.
+        *   Presets: `WaterDropPreset`, `EnergyPulsePreset`.
     *   `ScrollingTextEffect/` (includes `font8x8_basic.h`)
+        *   Description: Scrolls text across the LED matrix.
+        *   Parameters: `text` (String), `direction` (SCROLL_LEFT, SCROLL_RIGHT, SCROLL_UP, SCROLL_DOWN), `hue`, `saturation`, `brightness`, `scrollIntervalMs`, `charSpacing`.
+        *   Presets: `DefaultPreset`, `FastBlueLeftPreset`.
     *   `ZenLightsEffect/`
+        *   Description: Creates a calming effect with LEDs lighting up and fading out gently at random positions.
+        *   Parameters: `maxActiveLeds`, `minDurationMs`, `maxDurationMs`, `minPeakBrightness`, `maxPeakBrightness`, `baseBrightness`, `hueMin`, `hueMax`, `saturation`, `spawnIntervalMs`.
+        *   Presets: `ZenPreset`, `FireflyPreset`.
     *   Each of these libraries likely implements a specific visual pattern or animation for the LED strip, inheriting from a common base class or interface if one exists.
 
 ## 6. Communication Protocol
 
 *   **MQTT:** The primary method for external communication and control.
     *   Commands are sent via MQTT to select different effects or modify their parameters.
-    *   The exact MQTT topics and message format (likely JSON) would be defined within the `MqttController` and potentially documented further or discoverable from its source code.
+    *   The MQTT topic for commands is `esp32/s3/ledcontroller/command` (defined as `MQTT_TOPIC_COMMAND` in `MqttController.h`).
+    *   The ESP32 publishes its status to `esp32/s3/ledcontroller/status` (defined as `MQTT_TOPIC_STATUS` in `MqttController.h`).
+    *   Messages are JSON objects.
+        *   Commands can be sent to select an effect, set a preset for the current effect, or set specific parameters for the current effect.
+        *   **Select an Effect:**
+            *   Payload: `{"effect": "effect_name"}`
+            *   Replace `"effect_name"` with one of the supported values: `"gravity_balls"`, `"zen_lights"`, `"code_rain"`, `"ripple"`, `"scrolling_text"`, `"lava_lamp"`, `"noise"`.
+        *   **Set a Preset:**
+            *   Payload: `{"prePara": "preset_name"}`
+            *   This command applies to the currently active effect.
+            *   Replace `"preset_name"` with one of the presets listed for the current effect in the 'Individual Effect Libraries' section.
+        *   **Set Specific Parameters:**
+            *   Payload: `{"params": {"parameter_name_1": value1, "parameter_name_2": value2, ...}}`
+            *   This command applies to the currently active effect.
+            *   The `params` object should contain one or more key-value pairs, where the keys are the actual parameter names for the target effect, and `value1`, `value2`, etc., are their corresponding values.
+            *   Refer to the 'Individual Effect Libraries' section above for available parameters for each effect.
+            *   Example of setting parameters for an arbitrary effect (replace with actual effect and parameter names/values):
+                ```json
+                {
+                  "effect": "effect_name_here",
+                  "params": {
+                    "parameter_name_1": "some_string_value",
+                    "parameter_name_2": 123,
+                    "parameter_name_3": true
+                  }
+                }
+                ```
+            *   Note: You can also send parameters without the `"effect"` key if an effect is already active. For example, to adjust the speed of the current effect:
+                ```json
+                {
+                  "params": {
+                    "speed": 5
+                  }
+                }
+                ```
 
 ## 7. Project Structure
 
