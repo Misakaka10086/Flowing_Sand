@@ -1,5 +1,6 @@
 #include "ZenLightsEffect.h"
 #include <ArduinoJson.h>
+#include "../../include/DebugUtils.h"
 // ***** 3. 在.cpp文件中定义和初始化静态预设 *****
 const ZenLightsEffect::Parameters ZenLightsEffect::ZenPreset = {
     .maxActiveLeds = 5,
@@ -57,7 +58,7 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error)
     {
-        Serial.println("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTLN("ZenLightsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
 
@@ -88,7 +89,7 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
                 
                 // 更新指针
                 _ledStates = newLedStates;
-                Serial.printf("ZenLightsEffect: Maximum active LEDs changed to %d\n", _params.maxActiveLeds);
+                DEBUG_PRINTF("ZenLightsEffect: Maximum active LEDs changed to %d\n", _params.maxActiveLeds);
             }
         }
     }
@@ -114,7 +115,7 @@ void ZenLightsEffect::setParameters(const char *jsonParams)
         }
     }
     
-    Serial.println("ZenLightsEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("ZenLightsEffect parameters updated via JSON.");
 }
 
 void ZenLightsEffect::setPreset(const char* presetName) {
@@ -122,19 +123,19 @@ void ZenLightsEffect::setPreset(const char* presetName) {
         // 使用prePara字段来判断当前预设
         if (strcmp(_params.prePara, "Zen") == 0) {
             setParameters(FireflyPreset);
-            Serial.println("Switched to FireflyPreset");
+            DEBUG_PRINTLN("Switched to FireflyPreset");
         } else {
             setParameters(ZenPreset);
-            Serial.println("Switched to ZenPreset");
+            DEBUG_PRINTLN("Switched to ZenPreset");
         }
     } else if (strcmp(presetName, "Zen") == 0) {
         setParameters(ZenPreset);
-        Serial.println("Switched to ZenPreset");
+        DEBUG_PRINTLN("Switched to ZenPreset");
     } else if (strcmp(presetName, "Firefly") == 0) {
         setParameters(FireflyPreset);
-        Serial.println("Switched to FireflyPreset");
+        DEBUG_PRINTLN("Switched to FireflyPreset");
     } else {
-        Serial.println("Unknown preset name: " + String(presetName));
+        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
     }
 }
 

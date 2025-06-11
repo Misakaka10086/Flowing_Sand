@@ -1,6 +1,7 @@
 #include "LavaLampEffect.h"
 #include <ArduinoJson.h>
 #include <math.h>
+#include "../../include/DebugUtils.h"
 
 const LavaLampEffect::Parameters LavaLampEffect::ClassicLavaPreset = {
     .numBlobs = 4,
@@ -74,7 +75,7 @@ void LavaLampEffect::setParameters(const char *jsonParams)
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error)
     {
-        Serial.println("LavaLampEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTLN("LavaLampEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
 
@@ -108,7 +109,7 @@ void LavaLampEffect::setParameters(const char *jsonParams)
     // 调用结构体版本的 setParameters，它会处理所有转换和内存分配
     setParameters(newParams);
 
-    Serial.println("LavaLampEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("LavaLampEffect parameters updated via JSON.");
 }
 
 void LavaLampEffect::setPreset(const char *presetName)
@@ -118,27 +119,27 @@ void LavaLampEffect::setPreset(const char *presetName)
         if (strcmp(_params.prePara, "ClassicLava") == 0)
         {
             setParameters(MercuryPreset);
-            Serial.println("Switched to MercuryPreset");
+            DEBUG_PRINTLN("Switched to MercuryPreset");
         }
         else
         {
             setParameters(ClassicLavaPreset);
-            Serial.println("Switched to ClassicLavaPreset");
+            DEBUG_PRINTLN("Switched to ClassicLavaPreset");
         }
     }
     else if (strcmp(presetName, "ClassicLava") == 0)
     {
         setParameters(ClassicLavaPreset);
-        Serial.println("Switched to ClassicLavaPreset");
+        DEBUG_PRINTLN("Switched to ClassicLavaPreset");
     }
     else if (strcmp(presetName, "Mercury") == 0)
     {
         setParameters(MercuryPreset);
-        Serial.println("Switched to MercuryPreset");
+        DEBUG_PRINTLN("Switched to MercuryPreset");
     }
     else
     {
-        Serial.println("Unknown preset name for LavaLampEffect: " + String(presetName));
+        DEBUG_PRINTLN("Unknown preset name for LavaLampEffect: " + String(presetName));
     }
 }
 

@@ -1,5 +1,6 @@
 #include "ScrollingTextEffect.h"
 #include "font8x8_basic.h" // Includes the actual font data array
+#include "../../include/DebugUtils.h"
 
 // Define static presets
 const ScrollingTextEffect::Parameters ScrollingTextEffect::DefaultPreset = {
@@ -51,8 +52,8 @@ void ScrollingTextEffect::setParameters(const char* jsonParams) {
     DeserializationError error = deserializeJson(doc, jsonParams);
 
     if (error) {
-        Serial.print(F("ScrollingTextEffect::setParameters failed to parse JSON: "));
-        Serial.println(error.c_str());
+        DEBUG_PRINT(F("ScrollingTextEffect::setParameters failed to parse JSON: "));
+        DEBUG_PRINTLN(error.c_str());
         return;
     }
 
@@ -82,7 +83,7 @@ void ScrollingTextEffect::setParameters(const char* jsonParams) {
     }
 
     setParameters(newParams); // Apply and reset scroll if needed
-    Serial.println("ScrollingTextEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("ScrollingTextEffect parameters updated via JSON.");
 }
 
 void ScrollingTextEffect::setPreset(const char* presetName) {
@@ -97,9 +98,9 @@ void ScrollingTextEffect::setPreset(const char* presetName) {
     } else if (strcmp(presetName, FastBlueLeftPreset.prePara) == 0) {
         setParameters(FastBlueLeftPreset);
     } else {
-        Serial.println("ScrollingTextEffect: Unknown preset name: " + String(presetName));
+        DEBUG_PRINTLN("ScrollingTextEffect: Unknown preset name: " + String(presetName));
     }
-     Serial.println("ScrollingTextEffect: Switched to preset: " + String(_params.prePara));
+     DEBUG_PRINTLN("ScrollingTextEffect: Switched to preset: " + String(_params.prePara));
 }
 
 

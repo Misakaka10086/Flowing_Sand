@@ -1,5 +1,6 @@
 #include "GravityBallsEffect.h"
 #include <ArduinoJson.h>
+#include "../../include/DebugUtils.h"
 // 定义和初始化静态预设
 const GravityBallsEffect::Parameters GravityBallsEffect::BouncyPreset = {
     .numBalls = 15,
@@ -63,7 +64,7 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
-        Serial.println("GravityBallsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTLN("GravityBallsEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
 
@@ -76,7 +77,7 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
             _params.numBalls = newNumBalls;
             if (_strip != nullptr) { // 确保已经Begin
                 initBalls(); // initBalls会使用更新后的_params.numBalls
-                Serial.printf("GravityBalls: Number of balls changed to %d\n", _params.numBalls);
+                DEBUG_PRINTF("GravityBalls: Number of balls changed to %d\n", _params.numBalls);
             }
         }
     }
@@ -103,7 +104,7 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
         }
     }
     
-    Serial.println("GravityBallsEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("GravityBallsEffect parameters updated via JSON.");
 }
 
 void GravityBallsEffect::setPreset(const char* presetName) {
@@ -111,19 +112,19 @@ void GravityBallsEffect::setPreset(const char* presetName) {
         // 使用prePara字段来判断当前预设
         if (strcmp(_params.prePara, "Bouncy") == 0) {
             setParameters(PlasmaPreset);
-            Serial.println("Switched to PlasmaPreset");
+            DEBUG_PRINTLN("Switched to PlasmaPreset");
         } else {
             setParameters(BouncyPreset);
-            Serial.println("Switched to BouncyPreset");
+            DEBUG_PRINTLN("Switched to BouncyPreset");
         }
     } else if (strcmp(presetName, "Bouncy") == 0) {
         setParameters(BouncyPreset);
-        Serial.println("Switched to BouncyPreset");
+        DEBUG_PRINTLN("Switched to BouncyPreset");
     } else if (strcmp(presetName, "Plasma") == 0) {
         setParameters(PlasmaPreset);
-        Serial.println("Switched to PlasmaPreset");
+        DEBUG_PRINTLN("Switched to PlasmaPreset");
     } else {
-        Serial.println("Unknown preset name: " + String(presetName));
+        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
     }
 }
 

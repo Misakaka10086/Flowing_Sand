@@ -2,6 +2,7 @@
 #include <NeoPixelBus.h>
 #include <EffectController.h>
 #include <MqttController.h>
+#include "DebugUtils.h"
 
 const int LED_PIN = 11;
 const int NUM_LEDS = 64*4;
@@ -18,6 +19,8 @@ void onCommandReceived(const char* command) {
 
 void setup() {
     Serial.begin(115200);
+    DEBUG_PRINTLN("Debug output is enabled.");
+    DEBUG_PRINTF("Test value: %d\n", 123);
     
     strip.Begin();
     strip.Show();

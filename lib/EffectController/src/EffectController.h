@@ -8,6 +8,7 @@
 #include "RippleEffect.h"
 #include "ScrollingTextEffect.h"
 #include "LavaLampEffect.h"
+#include "../../include/DebugUtils.h"
 
 // 使用枚举来表示效果，更安全
 enum class EffectType {
@@ -30,7 +31,7 @@ public:
         // 初始化所有效果
         zenEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         if (!gravityEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT)) {
-            Serial.println("Gravity Effect FAILED to init!");
+            DEBUG_PRINTLN("Gravity Effect FAILED to init!");
         }
         codeRainEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);
         rippleEffect.Begin(strip, MATRIX_WIDTH, MATRIX_HEIGHT);

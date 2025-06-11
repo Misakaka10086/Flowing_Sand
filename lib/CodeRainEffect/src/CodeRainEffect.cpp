@@ -1,5 +1,6 @@
 #include "CodeRainEffect.h"
 #include <ArduinoJson.h>
+#include "../../include/DebugUtils.h"
 // 定义和初始化静态预设
 const CodeRainEffect::Parameters CodeRainEffect::ClassicMatrixPreset = {
     .minSpeed = 12.0f,
@@ -66,7 +67,7 @@ void CodeRainEffect::setParameters(const char* jsonParams) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
-        Serial.println("CodeRainEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTLN("CodeRainEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
     _params.minSpeed = doc["minSpeed"] | _params.minSpeed;
@@ -91,7 +92,7 @@ void CodeRainEffect::setParameters(const char* jsonParams) {
         }
     }
     
-    Serial.println("CodeRainEffect parameters updated via JSON.");
+    DEBUG_PRINTLN("CodeRainEffect parameters updated via JSON.");
 }
 
 void CodeRainEffect::setPreset(const char* presetName) {
@@ -99,19 +100,19 @@ void CodeRainEffect::setPreset(const char* presetName) {
         // 使用prePara字段来判断当前预设
         if (strcmp(_params.prePara, "ClassicMatrix") == 0) {
             setParameters(FastGlitchPreset);
-            Serial.println("Switched to FastGlitchPreset");
+            DEBUG_PRINTLN("Switched to FastGlitchPreset");
         } else {
             setParameters(ClassicMatrixPreset);
-            Serial.println("Switched to ClassicMatrixPreset");
+            DEBUG_PRINTLN("Switched to ClassicMatrixPreset");
         }
     } else if (strcmp(presetName, "ClassicMatrix") == 0) {
         setParameters(ClassicMatrixPreset);
-        Serial.println("Switched to ClassicMatrixPreset");
+        DEBUG_PRINTLN("Switched to ClassicMatrixPreset");
     } else if (strcmp(presetName, "FastGlitch") == 0) {
         setParameters(FastGlitchPreset);
-        Serial.println("Switched to FastGlitchPreset");
+        DEBUG_PRINTLN("Switched to FastGlitchPreset");
     } else {
-        Serial.println("Unknown preset name: " + String(presetName));
+        DEBUG_PRINTLN("Unknown preset name: " + String(presetName));
     }
 }
 

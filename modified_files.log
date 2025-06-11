@@ -1,0 +1,17 @@
+
+lib/CodeRainEffect/src/CodeRainEffect.cpp
+Replaced Serial calls in lib/CodeRainEffect/src/CodeRainEffect.cpp
+lib/GravityBallsEffect/src/GravityBallsEffect.cpp
+Replaced Serial calls in lib/GravityBallsEffect/src/GravityBallsEffect.cpp
+lib/LavaLampEffect/src/LavaLampEffect.cpp
+Replaced Serial calls in lib/LavaLampEffect/src/LavaLampEffect.cpp
+lib/MqttController/src/MqttController.cpp
+Replaced Serial calls in lib/MqttController/src/MqttController.cpp
+lib/MqttController/src/MqttController.h
+Replaced Serial calls in lib/MqttController/src/MqttController.h
+lib/RippleEffect/src/RippleEffect.cpp
+Replaced Serial calls in lib/RippleEffect/src/RippleEffect.cpp
+lib/ScrollingTextEffect/src/ScrollingTextEffect.cpp
+Replaced Serial calls in lib/ScrollingTextEffect/src/ScrollingTextEffect.cpp
+lib/ZenLightsEffect/src/ZenLightsEffect.cpp
+Replaced Serial calls in lib/ZenLightsEffect/src/ZenLightsEffect.cpp

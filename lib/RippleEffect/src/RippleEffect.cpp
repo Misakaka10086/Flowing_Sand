@@ -1,5 +1,6 @@
 #include "RippleEffect.h"
 #include <ArduinoJson.h>
+#include "../../include/DebugUtils.h"
 
 // Updated presets to include the new 'sharpness' parameter
 const RippleEffect::Parameters RippleEffect::WaterDropPreset = {
@@ -63,7 +64,7 @@ void RippleEffect::setParameters(const char* jsonParams) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
-        Serial.println("RippleEffect::setParameters failed to parse JSON: " + String(error.c_str()));
+        DEBUG_PRINTLN("RippleEffect::setParameters failed to parse JSON: " + String(error.c_str()));
         return;
     }
     if (doc["maxRipples"].is<uint8_t>()) {
