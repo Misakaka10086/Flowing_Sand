@@ -92,7 +92,7 @@ void GravityBallsEffect::setParameters(const Parameters &params)
 
 // ***** 新增的重载 setParameters(json) 方法 *****
 void GravityBallsEffect::setParameters(const char* jsonParams) {
-    DEBUG_PRINTLN("GravityBallsEffect::setParameters(json) called.");
+    DEBUG_PRINTLN("GravityBallsEffect::setParameters(json) called [refactored].");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
@@ -100,58 +100,34 @@ void GravityBallsEffect::setParameters(const char* jsonParams) {
         return;
     }
 
-    // Start with a copy of the current target (if transitioning) or active parameters.
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
-    bool numBallsFromJsonChanged = false;
+    
+    // Parse all fields using .is<T>()
+    if (doc["numBalls"].is<uint8_t>()) newParams.numBalls = doc["numBalls"].as<uint8_t>();
+    if (doc["gravityScale"].is<float>()) newParams.gravityScale = doc["gravityScale"].as<float>();
+    if (doc["dampingFactor"].is<float>()) newParams.dampingFactor = doc["dampingFactor"].as<float>();
+    if (doc["sensorDeadZone"].is<float>()) newParams.sensorDeadZone = doc["sensorDeadZone"].as<float>();
+    if (doc["restitution"].is<float>()) newParams.restitution = doc["restitution"].as<float>();
+    if (doc["baseBrightness"].is<uint8_t>()) newParams.baseBrightness = doc["baseBrightness"].as<uint8_t>();
+    if (doc["brightnessCyclePeriodS"].is<float>()) newParams.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"].as<float>();
+    if (doc["minBrightnessScale"].is<float>()) newParams.minBrightnessScale = doc["minBrightnessScale"].as<float>();
+    if (doc["maxBrightnessScale"].is<float>()) newParams.maxBrightnessScale = doc["maxBrightnessScale"].as<float>();
+    if (doc["colorCyclePeriodS"].is<float>()) newParams.colorCyclePeriodS = doc["colorCyclePeriodS"].as<float>();
+    if (doc["ballColorSaturation"].is<float>()) newParams.ballColorSaturation = doc["ballColorSaturation"].as<float>();
 
-    // Check and update numBalls first if present in JSON.
-    if (doc.containsKey("numBalls")) {
-        uint8_t jsonNumBalls = doc["numBalls"].as<uint8_t>();
-        if (jsonNumBalls != newParams.numBalls) {
-            newParams.numBalls = jsonNumBalls; // Update numBalls in our temporary newParams struct
-            numBallsFromJsonChanged = true;
+    if (doc["prePara"].is<const char*>()) {
+        const char* presetStr = doc["prePara"].as<const char*>();
+        if (presetStr) { // Check if conversion was successful
+            if (strcmp(presetStr, BouncyPreset.prePara) == 0) {
+                newParams.prePara = BouncyPreset.prePara;
+            } else if (strcmp(presetStr, PlasmaPreset.prePara) == 0) {
+                newParams.prePara = PlasmaPreset.prePara;
+            }
         }
     }
-
-    // Update other parameters from JSON if they exist.
-    if(doc.containsKey("gravityScale")) newParams.gravityScale = doc["gravityScale"];
-    if(doc.containsKey("dampingFactor")) newParams.dampingFactor = doc["dampingFactor"];
-    if(doc.containsKey("sensorDeadZone")) newParams.sensorDeadZone = doc["sensorDeadZone"];
-    if(doc.containsKey("restitution")) newParams.restitution = doc["restitution"];
-    if(doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"]; // uint8_t
-    if(doc.containsKey("brightnessCyclePeriodS")) newParams.brightnessCyclePeriodS = doc["brightnessCyclePeriodS"];
-    if(doc.containsKey("minBrightnessScale")) newParams.minBrightnessScale = doc["minBrightnessScale"];
-    if(doc.containsKey("maxBrightnessScale")) newParams.maxBrightnessScale = doc["maxBrightnessScale"];
-    if(doc.containsKey("colorCyclePeriodS")) newParams.colorCyclePeriodS = doc["colorCyclePeriodS"];
-    if(doc.containsKey("ballColorSaturation")) newParams.ballColorSaturation = doc["ballColorSaturation"];
-
-    if (doc.containsKey("prePara")) {
-        const char* presetStr = doc["prePara"];
-        if (strcmp(presetStr, BouncyPreset.prePara) == 0) newParams.prePara = BouncyPreset.prePara;
-        else if (strcmp(presetStr, PlasmaPreset.prePara) == 0) newParams.prePara = PlasmaPreset.prePara;
-        // else: keep newParams.prePara as it was (from _targetParams or _activeParams)
-    }
     
-    // Now, set up the transition using the fully prepared newParams.
-    _oldParams = _activeParams; // Capture current visual state as 'old'.
-    _targetParams = newParams;  // This is our new target state.
-
-    // If numBalls changed, it needs immediate structural update.
-    if (numBallsFromJsonChanged) {
-        DEBUG_PRINTF("GravityBalls: numBalls changing via JSON from %d to %d\n", _oldParams.numBalls, _targetParams.numBalls);
-        // initBalls() uses _targetParams.numBalls for allocation.
-        initBalls();
-        // Reflect the change in numBalls immediately in active and old params.
-        _activeParams.numBalls = _targetParams.numBalls;
-        _oldParams.numBalls = _targetParams.numBalls;
-    }
-    
-    // Start/update the transition for all other (interpolatable) parameters.
-    _effectTransitionStartTimeMs = millis();
-    _effectInTransition = true;
-    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
-
-    DEBUG_PRINTLN("GravityBallsEffect transition started from JSON.");
+    // Call the struct version to handle all logic including numBalls change and transition
+    setParameters(newParams);
 }
 
 void GravityBallsEffect::setPreset(const char* presetName) {

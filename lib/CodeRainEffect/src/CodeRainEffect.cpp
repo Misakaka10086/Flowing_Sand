@@ -1,3 +1,39 @@
+void CodeRainEffect::setParameters(const char* jsonParams) {
+    DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called.");
+    JsonDocument doc; // Using ArduinoJson v6 style
+    DeserializationError error = deserializeJson(doc, jsonParams);
+    if (error) {
+        DEBUG_PRINTF("CodeRainEffect::setParameters failed to parse JSON: %s\n", error.c_str());
+        return;
+    }
+
+    Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
+
+    if (doc["minSpeed"].is<float>()) newParams.minSpeed = doc["minSpeed"].as<float>();
+    if (doc["maxSpeed"].is<float>()) newParams.maxSpeed = doc["maxSpeed"].as<float>();
+    if (doc["minStreamLength"].is<int>()) newParams.minStreamLength = doc["minStreamLength"].as<int>();
+    if (doc["maxStreamLength"].is<int>()) newParams.maxStreamLength = doc["maxStreamLength"].as<int>();
+    if (doc["spawnProbability"].is<float>()) newParams.spawnProbability = doc["spawnProbability"].as<float>();
+    if (doc["minSpawnCooldownMs"].is<unsigned long>()) newParams.minSpawnCooldownMs = doc["minSpawnCooldownMs"].as<unsigned long>();
+    if (doc["maxSpawnCooldownMs"].is<unsigned long>()) newParams.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"].as<unsigned long>();
+    if (doc["baseHue"].is<float>()) newParams.baseHue = doc["baseHue"].as<float>();
+    if (doc["hueVariation"].is<float>()) newParams.hueVariation = doc["hueVariation"].as<float>();
+    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
+    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
+
+    if (doc["prePara"].is<const char*>()) {
+        const char* presetStr = doc["prePara"].as<const char*>();
+        if (presetStr) {
+            if (strcmp(presetStr, ClassicMatrixPreset.prePara) == 0) {
+                newParams.prePara = ClassicMatrixPreset.prePara;
+            } else if (strcmp(presetStr, FastGlitchPreset.prePara) == 0) {
+                newParams.prePara = FastGlitchPreset.prePara;
+            }
+        }
+    }
+
+    setParameters(newParams); // Call the struct version to handle logic and transition
+}
 #include "CodeRainEffect.h"
 #include <ArduinoJson.h>
 #include "../../../include/DebugUtils.h"
@@ -92,60 +128,39 @@ void CodeRainEffect::setParameters(const Parameters& params) {
 
 void CodeRainEffect::setParameters(const char* jsonParams) {
     DEBUG_PRINTLN("CodeRainEffect::setParameters(json) called.");
-    JsonDocument doc; // Using ArduinoJson v6 style, adjust if v5
+    JsonDocument doc; // Using ArduinoJson v6 style
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
         DEBUG_PRINTF("CodeRainEffect::setParameters failed to parse JSON: %s\n", error.c_str());
         return;
     }
 
-    // Start with a copy of the current target to allow partial updates on an ongoing target,
-    // or active if no transition is happening.
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
 
-    // Update fields from JSON if they exist
-    if (doc.containsKey("minSpeed")) newParams.minSpeed = doc["minSpeed"];
-    if (doc.containsKey("maxSpeed")) newParams.maxSpeed = doc["maxSpeed"];
-    if (doc.containsKey("minStreamLength")) newParams.minStreamLength = doc["minStreamLength"];
-    if (doc.containsKey("maxStreamLength")) newParams.maxStreamLength = doc["maxStreamLength"];
-    if (doc.containsKey("spawnProbability")) newParams.spawnProbability = doc["spawnProbability"];
-    if (doc.containsKey("minSpawnCooldownMs")) newParams.minSpawnCooldownMs = doc["minSpawnCooldownMs"];
-    if (doc.containsKey("maxSpawnCooldownMs")) newParams.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"];
-    if (doc.containsKey("baseHue")) newParams.baseHue = doc["baseHue"];
-    if (doc.containsKey("hueVariation")) newParams.hueVariation = doc["hueVariation"];
-    if (doc.containsKey("saturation")) newParams.saturation = doc["saturation"];
-    if (doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"];
+    if (doc["minSpeed"].is<float>()) newParams.minSpeed = doc["minSpeed"].as<float>();
+    if (doc["maxSpeed"].is<float>()) newParams.maxSpeed = doc["maxSpeed"].as<float>();
+    if (doc["minStreamLength"].is<int>()) newParams.minStreamLength = doc["minStreamLength"].as<int>();
+    if (doc["maxStreamLength"].is<int>()) newParams.maxStreamLength = doc["maxStreamLength"].as<int>();
+    if (doc["spawnProbability"].is<float>()) newParams.spawnProbability = doc["spawnProbability"].as<float>();
+    if (doc["minSpawnCooldownMs"].is<unsigned long>()) newParams.minSpawnCooldownMs = doc["minSpawnCooldownMs"].as<unsigned long>();
+    if (doc["maxSpawnCooldownMs"].is<unsigned long>()) newParams.maxSpawnCooldownMs = doc["maxSpawnCooldownMs"].as<unsigned long>();
+    if (doc["baseHue"].is<float>()) newParams.baseHue = doc["baseHue"].as<float>();
+    if (doc["hueVariation"].is<float>()) newParams.hueVariation = doc["hueVariation"].as<float>();
+    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
+    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
     
-    if (doc.containsKey("prePara")) {
-        const char* presetStr = doc["prePara"];
-        // This simple assignment works if presetStr is guaranteed to be long-lived,
-        // e.g., points to a global literal like ClassicMatrixPreset.prePara.
-        // If it can be an arbitrary string from JSON, it might need copying.
-        // For presets, it's typical to match against known ones.
-        if (strcmp(presetStr, ClassicMatrixPreset.prePara) == 0) newParams.prePara = ClassicMatrixPreset.prePara;
-        else if (strcmp(presetStr, FastGlitchPreset.prePara) == 0) newParams.prePara = FastGlitchPreset.prePara;
-        // else, if not matching a known preset, consider ignoring or logging. For now, it would keep the existing value.
-    }
-
-    // Now trigger the transition with the potentially modified newParams
-    if (_effectInTransition) {
-        _oldParams = _activeParams; // Capture current interpolated state as old
-    } else {
-        _oldParams = _activeParams; // Or current stable state if not transitioning
-    }
-    _targetParams = newParams; // Assign the fully prepared newParams
-    _effectTransitionStartTimeMs = millis();
-    _effectInTransition = true;
-    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS; // Reset duration
-    
-    // Reset stream cooldowns based on new target parameters
-    if (_codeStreams != nullptr) {
-        for (uint8_t i = 0; i < _matrixWidth; ++i) {
-            _codeStreams[i].spawnCooldownMs = random(_targetParams.minSpawnCooldownMs, _targetParams.maxSpawnCooldownMs);
-            _codeStreams[i].lastActivityTimeMs = millis() - random(0, _codeStreams[i].spawnCooldownMs);
+    if (doc["prePara"].is<const char*>()) {
+        const char* presetStr = doc["prePara"].as<const char*>();
+        if (presetStr) {
+            if (strcmp(presetStr, ClassicMatrixPreset.prePara) == 0) {
+                newParams.prePara = ClassicMatrixPreset.prePara;
+            } else if (strcmp(presetStr, FastGlitchPreset.prePara) == 0) {
+                newParams.prePara = FastGlitchPreset.prePara;
+            }
         }
     }
-    DEBUG_PRINTLN("CodeRainEffect transition started from JSON update.");
+
+    setParameters(newParams); // Call the struct version to handle logic and transition
 }
 
 void CodeRainEffect::setPreset(const char* presetName) {

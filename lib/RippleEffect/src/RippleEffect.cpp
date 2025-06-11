@@ -101,21 +101,19 @@ void RippleEffect::setParameters(const char* jsonParams) {
         return;
     }
 
-    // Start with current target or active params to allow partial updates
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
 
-    // Update fields from JSON if they exist
-    if (doc.containsKey("maxRipples")) newParams.maxRipples = doc["maxRipples"].as<uint8_t>();
-    if (doc.containsKey("speed")) newParams.speed = doc["speed"].as<float>();
-    if (doc.containsKey("thickness")) newParams.thickness = doc["thickness"].as<float>();
-    if (doc.containsKey("spawnIntervalS")) newParams.spawnIntervalS = doc["spawnIntervalS"].as<float>();
-    if (doc.containsKey("maxRadius")) newParams.maxRadius = doc["maxRadius"].as<float>();
-    if (doc.containsKey("randomOrigin")) newParams.randomOrigin = doc["randomOrigin"].as<bool>();
-    if (doc.containsKey("saturation")) newParams.saturation = doc["saturation"].as<float>();
-    if (doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"].as<float>();
-    if (doc.containsKey("sharpness")) newParams.sharpness = doc["sharpness"].as<float>();
+    if (doc["maxRipples"].is<uint8_t>()) newParams.maxRipples = doc["maxRipples"].as<uint8_t>();
+    if (doc["speed"].is<float>()) newParams.speed = doc["speed"].as<float>();
+    if (doc["thickness"].is<float>()) newParams.thickness = doc["thickness"].as<float>();
+    if (doc["spawnIntervalS"].is<float>()) newParams.spawnIntervalS = doc["spawnIntervalS"].as<float>();
+    if (doc["maxRadius"].is<float>()) newParams.maxRadius = doc["maxRadius"].as<float>();
+    if (doc["randomOrigin"].is<bool>()) newParams.randomOrigin = doc["randomOrigin"].as<bool>();
+    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
+    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
+    if (doc["sharpness"].is<float>()) newParams.sharpness = doc["sharpness"].as<float>();
 
-    if (doc.containsKey("prePara")) {
+    if (doc["prePara"].is<const char*>()) {
         const char* presetStr = doc["prePara"].as<const char*>();
         if (presetStr) {
             if (strcmp(presetStr, WaterDropPreset.prePara) == 0) newParams.prePara = WaterDropPreset.prePara;
@@ -123,9 +121,7 @@ void RippleEffect::setParameters(const char* jsonParams) {
         }
     }
 
-    // Call the struct version of setParameters to handle actual update and transition logic
     setParameters(newParams);
-    // The DEBUG_PRINTLN for transition start will come from the struct version.
 }
 
 // setPreset is unchanged

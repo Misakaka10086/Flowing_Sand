@@ -63,8 +63,9 @@ void ZenLightsEffect::setParameters(const Parameters &params)
     DEBUG_PRINTLN("ZenLightsEffect transition started.");
 }
 
-void ZenLightsEffect::setParameters(const char* jsonParams) {
-    DEBUG_PRINTLN("ZenLightsEffect::setParameters(json) called [refactored].");
+void ZenLightsEffect::setParameters(const char *jsonParams)
+{
+    DEBUG_PRINTLN("ZenLightsEffect::setParameters(json) called.");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonParams);
     if (error) {
@@ -74,30 +75,30 @@ void ZenLightsEffect::setParameters(const char* jsonParams) {
 
     Parameters newParams = _effectInTransition ? _targetParams : _activeParams;
 
-    if (doc["maxActiveLeds"].is<int>()) newParams.maxActiveLeds = doc["maxActiveLeds"].as<int>();
-    if (doc["minDurationMs"].is<unsigned long>()) newParams.minDurationMs = doc["minDurationMs"].as<unsigned long>();
-    if (doc["maxDurationMs"].is<unsigned long>()) newParams.maxDurationMs = doc["maxDurationMs"].as<unsigned long>();
-    if (doc["minPeakBrightness"].is<float>()) newParams.minPeakBrightness = doc["minPeakBrightness"].as<float>();
-    if (doc["maxPeakBrightness"].is<float>()) newParams.maxPeakBrightness = doc["maxPeakBrightness"].as<float>();
-    if (doc["baseBrightness"].is<float>()) newParams.baseBrightness = doc["baseBrightness"].as<float>();
-    if (doc["hueMin"].is<float>()) newParams.hueMin = doc["hueMin"].as<float>();
-    if (doc["hueMax"].is<float>()) newParams.hueMax = doc["hueMax"].as<float>();
-    if (doc["saturation"].is<float>()) newParams.saturation = doc["saturation"].as<float>();
-    if (doc["spawnIntervalMs"].is<unsigned long>()) newParams.spawnIntervalMs = doc["spawnIntervalMs"].as<unsigned long>();
+    if(doc.containsKey("maxActiveLeds")) newParams.maxActiveLeds = doc["maxActiveLeds"];
+    if(doc.containsKey("minDurationMs")) newParams.minDurationMs = doc["minDurationMs"];
+    if(doc.containsKey("maxDurationMs")) newParams.maxDurationMs = doc["maxDurationMs"];
+    if(doc.containsKey("minPeakBrightness")) newParams.minPeakBrightness = doc["minPeakBrightness"];
+    if(doc.containsKey("maxPeakBrightness")) newParams.maxPeakBrightness = doc["maxPeakBrightness"];
+    if(doc.containsKey("baseBrightness")) newParams.baseBrightness = doc["baseBrightness"];
+    if(doc.containsKey("hueMin")) newParams.hueMin = doc["hueMin"];
+    if(doc.containsKey("hueMax")) newParams.hueMax = doc["hueMax"];
+    if(doc.containsKey("saturation")) newParams.saturation = doc["saturation"];
+    if(doc.containsKey("spawnIntervalMs")) newParams.spawnIntervalMs = doc["spawnIntervalMs"];
 
-    if (doc["prePara"].is<const char*>()) {
-        const char* presetStr = doc["prePara"].as<const char*>();
-        if (presetStr) {
-            if (strcmp(presetStr, ZenPreset.prePara) == 0) {
-                newParams.prePara = ZenPreset.prePara;
-            } else if (strcmp(presetStr, FireflyPreset.prePara) == 0) {
-                newParams.prePara = FireflyPreset.prePara;
-            }
-        }
+    if (doc.containsKey("prePara")) {
+        const char* presetStr = doc["prePara"];
+        if (strcmp(presetStr, ZenPreset.prePara) == 0) newParams.prePara = ZenPreset.prePara;
+        else if (strcmp(presetStr, FireflyPreset.prePara) == 0) newParams.prePara = FireflyPreset.prePara;
     }
-    
-    // Call the struct version to handle all logic including transition setup
-    setParameters(newParams);
+
+    _oldParams = _activeParams;
+    _targetParams = newParams;
+    _effectTransitionStartTimeMs = millis();
+    _effectInTransition = true;
+    _effectTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
+
+    DEBUG_PRINTLN("ZenLightsEffect transition started from JSON.");
 }
 
 void ZenLightsEffect::setPreset(const char* presetName) {
